@@ -1,1 +1,4 @@
 .env
+test.pdf
+testing/
+backend/tools/__pycache__/
