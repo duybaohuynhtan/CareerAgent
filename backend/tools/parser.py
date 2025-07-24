@@ -1,6 +1,14 @@
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List, Dict, Any
 from langchain.tools import tool
+from PyPDF2 import PdfReader
+
+def read_pdf(path):
+    reader = PdfReader(path)
+    text = []
+    for page in reader.pages:
+        text.append(page.extract_text())
+    return "\n".join(text)
 
 class ResumeSchema(BaseModel):
     """
@@ -13,8 +21,3 @@ class ResumeSchema(BaseModel):
     experiences: List[Dict[str, Any]] = Field(description="The experiences of the candidate")
     education: List[Dict[str, Any]] = Field(description="The education of the candidate")
 
-@tool(args_schema=ResumeSchema)
-def parse_resume(cv_text: str) -> ResumeSchema:
-    """
-    Extract structured resume information from raw text.
-    """
