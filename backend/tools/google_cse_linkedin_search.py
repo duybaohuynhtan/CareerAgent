@@ -12,7 +12,7 @@ from langchain.utils.openai_functions import convert_pydantic_to_openai_function
 from langchain.prompts import ChatPromptTemplate
 from langchain.output_parsers.openai_functions import JsonOutputFunctionsParser
 from langchain_groq import ChatGroq
-from parser import JobSchema
+from backend.tools.schema import JobSchema
 
 class GoogleCSELinkedInSearcher:
     def __init__(self, api_key: str, search_engine_id: str):
@@ -49,7 +49,19 @@ class GoogleCSELinkedInSearcher:
             )
             
             prompt = ChatPromptTemplate.from_messages([
-                ("system", "You are a structured data extraction assistant. Your task is to read a LinkedIn search result and extract exactly the relevant information. Only extract information explicitly present; do not guess or infer. If a field is missing, set it to \"None\" string (never null)."),
+                ("system", """You are a structured data extraction assistant specialized in parsing LinkedIn job postings. 
+
+CRITICAL INSTRUCTIONS:
+1. Extract ONLY information explicitly present in the provided content
+2. DO NOT guess, infer, or make up any information
+3. For ANY missing information, you MUST use the string "None" (never null, never empty string)
+4. Be thorough in extracting all available details about job requirements, skills, company info, etc.
+5. Parse salary information carefully, separating min/max if range is provided
+6. Extract all mentioned technologies, programming languages, and skills into appropriate lists
+7. Identify work arrangement (Remote/Hybrid/On-site) from location or description
+8. Parse seniority level from job title or description (Entry/Mid/Senior/Lead/Director)
+
+Remember: Use "None" string for any field where information is not explicitly available."""),
                 ("human", "Title: {title}\nURL: {url}\nSnippet: {snippet}")
             ])
             
@@ -104,7 +116,7 @@ class GoogleCSELinkedInSearcher:
             start_index = 1
             
             # Google CSE only allows 10 results per request, max 100 results total
-            while len(all_jobs) < num_results and start_index <= 91:  # 91 to ensure not to exceed 100
+            while len(all_jobs) < num_results and start_index <= 99:  # 99 to ensure not to exceed 100
                 batch_size = min(10, num_results - len(all_jobs))
                 
                 # Parameters for Google CSE API
