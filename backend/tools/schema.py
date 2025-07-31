@@ -389,3 +389,65 @@ def parse_resume_pdf(pdf_path: str) -> dict:
     parser = CVParser()
     return parser.parse_resume_from_pdf(pdf_path)
 
+
+# =============================================================================
+# LinkedIn Job Search Schema
+# =============================================================================
+
+class LinkedInJobSearchInput(BaseModel):
+    """
+    Comprehensive input schema for LinkedIn job search with all possible filters.
+    Handles both basic and advanced search scenarios in a single tool.
+    """
+    # Required fields
+    keyword: str = Field(..., description="Main search keyword (job title, skills, technology, or company name)")
+    
+    # Location filters
+    location: str = Field(default="", description="Work location (city, state, country, or 'remote'). Leave empty for all locations")
+    
+    # Job specifics  
+    job_type: str = Field(default="", description="Employment type: full-time, part-time, contract, internship, temporary, freelance. Leave empty for all types")
+    experience_level: str = Field(default="", description="Experience level: entry, junior, mid, senior, lead, principal, director, executive. Leave empty for all levels")
+    
+    # Company and industry filters
+    company: str = Field(default="", description="Specific company name to search within (e.g., 'Google', 'Microsoft'). Leave empty to search all companies")
+    industry: str = Field(default="", description="Industry sector (e.g., 'technology', 'healthcare', 'finance'). Leave empty for all industries")
+    
+    # Time and date filters
+    date_range: str = Field(default="m1", description="Job posting recency: 'd1' (past day), 'w1' (past week), 'm1' (past month), 'm2' (past 2 months), 'm3' (past 3 months), 'm6' (past 6 months)")
+    
+    # Search parameters
+    num_results: int = Field(default=10, description="Number of job results to return (1-50)", ge=1, le=50)
+    parsing_method: str = Field(default="llm", description="Data extraction method: 'llm' for AI-powered parsing (recommended) or 'manual' for regex-based parsing")
+    
+    # Advanced filters
+    salary_range: str = Field(default="", description="Salary range filter (e.g., '$100k-150k', '80000-120000'). Leave empty to ignore salary")
+    work_arrangement: str = Field(default="", description="Work arrangement: remote, hybrid, on-site, flexible. Leave empty for all arrangements")
+    job_function: str = Field(default="", description="Job function category (e.g., 'engineering', 'marketing', 'sales', 'design'). Leave empty for all functions")
+    
+    # Search behavior
+    include_similar: bool = Field(default=True, description="Include similar/related job titles in search results")
+    exact_match_company: bool = Field(default=False, description="Require exact company name match (useful for targeting specific companies)")
+    
+    @validator('date_range')
+    def validate_date_range(cls, v):
+        valid_ranges = ['d1', 'w1', 'm1', 'm2', 'm3', 'm6', 'y1']
+        if v and v not in valid_ranges:
+            return 'm1'  # Default to 1 month
+        return v
+    
+    @validator('parsing_method')
+    def validate_parsing_method(cls, v):
+        if v not in ['llm', 'manual']:
+            return 'llm'  # Default to LLM parsing
+        return v
+    
+    @validator('*', pre=True)
+    def empty_str_to_default(cls, v, field):
+        """Ensure empty strings are handled appropriately"""
+        if v == '' or v is None:
+            if field.name in ['keyword']:  # Required fields should not be empty
+                return v  # Let validation handle required fields
+            return ""  # Optional fields can be empty
+        return v
+
