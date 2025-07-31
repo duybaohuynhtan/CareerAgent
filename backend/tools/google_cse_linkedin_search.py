@@ -16,16 +16,18 @@ from schema import JobSchema
 from manual_parser import LinkedInJobManualParser
 
 class GoogleCSELinkedInSearcher:
-    def __init__(self, api_key: str, search_engine_id: str):
+    def __init__(self, api_key: str, search_engine_id: str, model_name: str = "deepseek-r1-distill-llama-70b"):
         """
         Initializes Google CSE LinkedIn Searcher
         
         Args:
             api_key (str): Google API key
             search_engine_id (str): Custom Search Engine ID
+            model_name (str): LLM model name to use for parsing
         """
         self.api_key = api_key
         self.search_engine_id = search_engine_id
+        self.model_name = model_name
         self.base_url = "https://www.googleapis.com/customsearch/v1"
         
         # Initialize manual parser
@@ -34,7 +36,7 @@ class GoogleCSELinkedInSearcher:
         try:
             load_dotenv()
             self.llm_model = ChatGroq(
-                model="llama-3.3-70b-versatile",
+                model=self.model_name,
                 temperature=0,
             )
             self._setup_llm_extraction_chain()
@@ -333,41 +335,3 @@ Remember: Arrays must always be arrays [], never string "None"."""),
                         jobs.append(manual_job)
         
         return jobs
-
-
-def search_linkedin_jobs_google(api_key: str, 
-                              search_engine_id: str,
-                              keyword: str, 
-                              location: str = "", 
-                              job_type: str = "",
-                              experience_level: str = "",
-                              num_results: int = 10,
-                              parsing_method: str = "llm",
-                              **kwargs) -> Dict:
-    """
-    Utility function to search LinkedIn jobs using Google CSE API
-    
-    Args:
-        api_key (str): Google API key
-        search_engine_id (str): Custom Search Engine ID
-        keyword (str): Search keyword
-        location (str): Work location
-        job_type (str): Job type
-        experience_level (str): Experience level
-        num_results (int): Number of results
-        parsing_method (str): "manual" for regex parsing or "llm" for LLM parsing
-        **kwargs: Additional parameters for advanced search
-        
-    Returns:
-        Dict: Search result
-    """
-    searcher = GoogleCSELinkedInSearcher(api_key, search_engine_id)
-    return searcher.search_jobs(
-        keyword=keyword,
-        location=location,
-        job_type=job_type,
-        experience_level=experience_level,
-        num_results=num_results,
-        parsing_method=parsing_method,
-        **kwargs
-    )
