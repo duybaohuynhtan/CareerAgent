@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr, validator
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import Optional, List, Dict, Any, Union
 from langchain.tools import tool
 from PyPDF2 import PdfReader
@@ -133,7 +133,7 @@ class ResumeSchema(BaseModel):
     availability: str = Field(default="None", description="Availability (Immediately, 2 weeks notice, etc.)")
     preferred_work_type: str = Field(default="None", description="Preferred work arrangement (Remote, Hybrid, On-site)")
     
-    @validator('*', pre=True)
+    @field_validator('*', mode="before")
     def empty_str_to_none(cls, v):
         if v == '' or v is None:
             return "None"
@@ -215,8 +215,27 @@ class JobSchema(BaseModel):
     source: str = Field(default="linkedin", description="Source platform (LinkedIn, Indeed, etc.)")
     job_function: str = Field(default="None", description="Job function category")
     
-    @validator('*', pre=True)
-    def empty_str_to_none(cls, v):
+    @field_validator('*', mode="before")
+    def handle_none_values(cls, v, info):
+        field_name = info.field_name if info else None
+        
+        # List of field names that should be arrays
+        array_fields = {
+            'benefits', 'responsibilities', 'required_skills', 'preferred_skills', 
+            'soft_skills', 'education_requirements', 'experience_requirements', 
+            'certifications_required', 'languages_required', 'technologies', 
+            'programming_languages'
+        }
+        
+        # For array fields, convert "None" string to empty list
+        if field_name in array_fields:
+            if v == "None" or v == '' or v is None:
+                return []
+            elif isinstance(v, str) and v.strip() == "":
+                return []
+            return v
+        
+        # For non-array fields, convert empty values to "None" string
         if v == '' or v is None:
             return "None"
         return v
@@ -429,20 +448,20 @@ class LinkedInJobSearchInput(BaseModel):
     include_similar: bool = Field(default=True, description="Include similar/related job titles in search results")
     exact_match_company: bool = Field(default=False, description="Require exact company name match (useful for targeting specific companies)")
     
-    @validator('date_range')
+    @field_validator('date_range')
     def validate_date_range(cls, v):
         valid_ranges = ['d1', 'w1', 'm1', 'm2', 'm3', 'm6', 'y1']
         if v and v not in valid_ranges:
             return 'm1'  # Default to 1 month
         return v
     
-    @validator('parsing_method')
+    @field_validator('parsing_method')
     def validate_parsing_method(cls, v):
         if v not in ['llm', 'manual']:
             return 'llm'  # Default to LLM parsing
         return v
     
-    @validator('*', pre=True)
+    @field_validator('*', mode="before")
     def empty_str_to_default(cls, v, field):
         """Ensure empty strings are handled appropriately"""
         if v == '' or v is None:
