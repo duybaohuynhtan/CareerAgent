@@ -7,6 +7,14 @@ from dotenv import load_dotenv
 from google_cse_linkedin_search import GoogleCSELinkedInSearcher
 from schema import LinkedInJobSearchInput
 
+from langchain_groq import ChatGroq
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.agents.output_parsers.tools import ToolsAgentOutputParser
+from langchain.schema.runnable import RunnablePassthrough
+from langchain.agents import AgentExecutor
+from langchain.memory import ConversationBufferMemory
+from langchain.agents.format_scratchpad import format_to_openai_functions
+
 @tool(args_schema=LinkedInJobSearchInput)
 def search_linkedin_jobs(
     keyword: str,
@@ -22,7 +30,8 @@ def search_linkedin_jobs(
     work_arrangement: str = "",
     job_function: str = "",
     include_similar: bool = True,
-    exact_match_company: bool = False
+    exact_match_company: bool = False,
+    model_name: str = "deepseek-r1-distill-llama-70b"
 ) -> Dict:
     """
     Comprehensive LinkedIn job search with advanced filtering capabilities.
@@ -55,7 +64,7 @@ def search_linkedin_jobs(
         }
     
     # Create searcher instance
-    searcher = GoogleCSELinkedInSearcher(api_key, search_engine_id)
+    searcher = GoogleCSELinkedInSearcher(api_key, search_engine_id, model_name=model_name)
     
     # Use the unified search_jobs method with all parameters
     result = searcher.search_jobs(
@@ -81,23 +90,19 @@ def search_linkedin_jobs(
 tools = [search_linkedin_jobs]
 
 # Setup conversation model with LinkedIn job search capabilities
-def create_linkedin_job_agent():
-    """Creates a conversational agent with LinkedIn job search capabilities"""
+def create_linkedin_job_agent(model_name: str = "deepseek-r1-distill-llama-70b"):
+    """Creates a conversational agent with LinkedIn job search capabilities
     
-    from langchain_groq import ChatGroq
-    from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-    from langchain.agents.output_parsers.tools import ToolsAgentOutputParser
-    from langchain.schema.runnable import RunnablePassthrough
-    from langchain.agents import AgentExecutor
-    from langchain.memory import ConversationBufferMemory
-    from langchain.agents.format_scratchpad import format_to_openai_functions
-    
+    Args:
+        model_name (str): LLM model name to use for the agent
+    """
+
     # Load environment variables
     load_dotenv()
     
     # Initialize model
     model = ChatGroq(
-        model="deepseek-r1-distill-llama-70b",
+        model=model_name,
         temperature=0
     ).bind_tools(tools=tools)
     
@@ -131,6 +136,30 @@ SEARCH TOOL USAGE:
 6. Suggest relevant keywords and search strategies
 7. Be proactive in offering additional search refinements
 
+CRITICAL OUTPUT REQUIREMENTS FOR JOB SEARCH RESULTS:
+When you receive job search results, you MUST:
+1. **ALWAYS list ALL jobs found in detail** - this is the primary purpose
+2. **Display each job with comprehensive information including:**
+   - Job title and seniority level
+   - Company name and industry information
+   - Location and work arrangement (Remote/Hybrid/On-site)
+   - Employment type (Full-time, Part-time, Contract, etc.)
+   - Salary information if available
+   - Key required skills and technologies
+   - Experience requirements
+   - Education requirements
+   - Job description summary
+   - Application URL
+   - Job posting date
+3. **Format jobs in a clear, structured manner** (numbered list or sections)
+4. **After listing all jobs, provide summary analysis:**
+   - Total number of jobs found
+   - Common requirements across positions
+   - Salary ranges observed
+   - Most frequent technologies/skills
+   - Remote work opportunities
+   - Suggestions for improving search or next steps
+
 SEARCH TIPS TO SHARE:
 - Use specific job titles and skills as keywords
 - Include location for better local results
@@ -140,14 +169,7 @@ SEARCH TIPS TO SHARE:
 - Remote work can be specified in work_arrangement parameter
 - Date range controls how recent the job postings are
 
-RESULT ANALYSIS:
-- Summarize key findings from search results
-- Identify common requirements across jobs
-- Point out salary ranges when available
-- Highlight remote/flexible work opportunities
-- Suggest follow-up searches or refinements
-
-Remember to be helpful, informative, and provide actionable advice for job seekers."""),
+Remember: Users are searching for jobs, so they need to see detailed job listings first and foremost. Analysis and advice come secondary to presenting the actual job opportunities."""),
         MessagesPlaceholder(variable_name="chat_history"),
         ("user", "{input}"),
         MessagesPlaceholder(variable_name="agent_scratchpad")
@@ -173,61 +195,10 @@ Remember to be helpful, informative, and provide actionable advice for job seeke
     return agent_executor
 
 # Convenience function to get a ready-to-use agent
-def get_linkedin_job_agent():
-    """Get a LinkedIn job search agent ready for conversation"""
-    return create_linkedin_job_agent()
-
-# Example usage function
-def example_usage():
-    """Example of how to use the enhanced LinkedIn job agent"""
+def get_linkedin_job_agent(model_name: str = "deepseek-r1-distill-llama-70b"):
+    """Get a LinkedIn job search agent ready for conversation
     
-    # Create agent
-    agent = get_linkedin_job_agent()
-    
-    # Example queries showcasing the enhanced capabilities
-    example_queries = [
-        "Search for Python developer jobs in San Francisco",
-        "Find senior software engineer positions at Google in the last week",
-        "Look for remote data scientist jobs with salary above $100k",
-        "Search for entry-level marketing jobs in New York",
-        "Find full-time backend engineer positions in the technology industry",
-        "Search for contract DevOps jobs posted in the last month",
-        "Look for hybrid machine learning engineer positions",
-        "Find director-level positions at startups in healthcare industry"
-    ]
-    
-    print("Enhanced LinkedIn Job Search Agent Ready!")
-    print("Features: Unified search tool with comprehensive filtering")
-    print("- All job types, locations, companies, industries")
-    print("- Experience levels, work arrangements, salary considerations")
-    print("- Time-based filtering, job functions")
-    print("\nExample queries you can try:")
-    for i, query in enumerate(example_queries, 1):
-        print(f"{i}. {query}")
-    
-    print("\nDirect tool usage example:")
-    print("from backend.tools.job_search_agent import search_linkedin_jobs")
-    print('result = search_linkedin_jobs(keyword="DevOps", location="remote", experience_level="senior")')
-    
-    return agent
-
-if __name__ == "__main__":
-    # Demo the agent
-    agent = example_usage()
-    
-    # Interactive demo
-    print("\n" + "="*50)
-    print("Interactive Demo - Type 'quit' to exit")
-    print("="*50)
-    
-    while True:
-        user_input = input("\nYou: ")
-        if user_input.lower() in ['quit', 'exit', 'bye']:
-            print("Goodbye!")
-            break
-        
-        try:
-            response = agent.invoke({"input": user_input})
-            print(f"\nAgent: {response['output']}")
-        except Exception as e:
-            print(f"Error: {str(e)}")
+    Args:
+        model_name (str): LLM model name to use for the agent
+    """
+    return create_linkedin_job_agent(model_name=model_name)
