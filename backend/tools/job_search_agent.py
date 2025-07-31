@@ -4,8 +4,8 @@ import os
 from dotenv import load_dotenv
 
 # Import GoogleCSELinkedInSearcher and schema
-from backend.tools.google_cse_linkedin_search import GoogleCSELinkedInSearcher
-from backend.tools.schema import LinkedInJobSearchInput
+from google_cse_linkedin_search import GoogleCSELinkedInSearcher
+from schema import LinkedInJobSearchInput
 
 @tool(args_schema=LinkedInJobSearchInput)
 def search_linkedin_jobs(
@@ -44,91 +44,36 @@ def search_linkedin_jobs(
     load_dotenv()
     
     # Get API credentials from environment
-    api_key = os.getenv('GOOGLE_API_KEY')
-    search_engine_id = os.getenv('GOOGLE_CSE_ID')
+    api_key = os.getenv('CUSTOM_SEARCH_API_KEY')
+    search_engine_id = os.getenv('GOOGLE_SEARCH_ENGINE_ID')
     
     if not api_key or not search_engine_id:
         return {
             "success": False,
-            "error": "Missing Google API credentials. Please set GOOGLE_API_KEY and GOOGLE_CSE_ID environment variables.",
+            "error": "Missing Google API credentials. Please set CUSTOM_SEARCH_API_KEY and GOOGLE_SEARCH_ENGINE_ID environment variables.",
             "jobs": []
         }
     
     # Create searcher instance
     searcher = GoogleCSELinkedInSearcher(api_key, search_engine_id)
     
-    # Build search query intelligently based on provided parameters
-    query_parts = [keyword]
-    
-    # Add non-empty filters to search query
-    if location.strip():
-        query_parts.append(location.strip())
-    
-    if job_type.strip():
-        query_parts.append(job_type.strip())
-        
-    if experience_level.strip():
-        query_parts.append(experience_level.strip())
-    
-    if work_arrangement.strip():
-        query_parts.append(work_arrangement.strip())
-    
-    if job_function.strip():
-        query_parts.append(job_function.strip())
-    
-    if industry.strip():
-        query_parts.append(industry.strip())
-    
-    # For salary and company, use more targeted approach
-    if salary_range.strip():
-        # Add salary terms to help find relevant jobs
-        query_parts.append("salary")
-    
-    # Decide between basic search and advanced search based on parameters
-    if company.strip():
-        # Use advanced search when company is specified
-        result = searcher.search_with_filters(
-            keyword=" ".join(query_parts),
-            company=company if exact_match_company else "",
-            location=location,
-            job_level=experience_level,
-            date_range=date_range,
-            num_results=num_results,
-            parsing_method=parsing_method
-        )
-    else:
-        # Use basic search for general queries
-        result = searcher.search_linkedin_jobs(
-            keyword=" ".join(query_parts),
-            location=location,
-            job_type=job_type,
-            experience_level=experience_level,
-            num_results=num_results,
-            parsing_method=parsing_method
-        )
-    
-    # Add metadata about applied filters
-    if result.get("success"):
-        result["applied_filters"] = {
-            "keyword": keyword,
-            "location": location if location.strip() else "all locations",
-            "job_type": job_type if job_type.strip() else "all types",
-            "experience_level": experience_level if experience_level.strip() else "all levels",
-            "company": company if company.strip() else "all companies",
-            "industry": industry if industry.strip() else "all industries",
-            "date_range": date_range,
-            "work_arrangement": work_arrangement if work_arrangement.strip() else "all arrangements",
-            "job_function": job_function if job_function.strip() else "all functions",
-            "salary_filter": "applied" if salary_range.strip() else "not applied",
-            "exact_company_match": exact_match_company,
-            "include_similar_jobs": include_similar
-        }
-        
-        # Post-process results for additional filtering if needed
-        if salary_range.strip() and result.get("jobs"):
-            # Note: Actual salary filtering would need more sophisticated parsing
-            # For now, just add this info to metadata
-            result["salary_filter_note"] = f"Searched with salary consideration: {salary_range}"
+    # Use the unified search_jobs method with all parameters
+    result = searcher.search_jobs(
+        keyword=keyword,
+        location=location,
+        job_type=job_type,
+        experience_level=experience_level,
+        company=company,
+        industry=industry,
+        date_range=date_range,
+        num_results=num_results,
+        parsing_method=parsing_method,
+        salary_range=salary_range,
+        work_arrangement=work_arrangement,
+        job_function=job_function,
+        include_similar=include_similar,
+        exact_match_company=exact_match_company
+    )
     
     return result
 
@@ -141,8 +86,7 @@ def create_linkedin_job_agent():
     
     from langchain_groq import ChatGroq
     from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-    from langchain.tools.render import format_tool_to_openai_function
-    from langchain.agents.output_parsers import OpenAIFunctionsAgentOutputParser
+    from langchain.agents.output_parsers.tools import ToolsAgentOutputParser
     from langchain.schema.runnable import RunnablePassthrough
     from langchain.agents import AgentExecutor
     from langchain.memory import ConversationBufferMemory
@@ -152,11 +96,10 @@ def create_linkedin_job_agent():
     load_dotenv()
     
     # Initialize model
-    functions = [format_tool_to_openai_function(f) for f in tools]
     model = ChatGroq(
-        model="llama-3.3-70b-versatile",
-        temperature=0.1
-    ).bind(functions=functions)
+        model="deepseek-r1-distill-llama-70b",
+        temperature=0
+    ).bind_tools(tools=tools)
     
     # Create prompt template
     prompt = ChatPromptTemplate.from_messages([
@@ -213,7 +156,7 @@ Remember to be helpful, informative, and provide actionable advice for job seeke
     # Create agent chain
     agent_chain = RunnablePassthrough.assign(
         agent_scratchpad=lambda x: format_to_openai_functions(x["intermediate_steps"])
-    ) | prompt | model | OpenAIFunctionsAgentOutputParser()
+    ) | prompt | model | ToolsAgentOutputParser()
     
     # Setup memory
     memory = ConversationBufferMemory(return_messages=True, memory_key="chat_history")
