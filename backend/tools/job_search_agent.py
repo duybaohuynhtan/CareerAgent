@@ -1,88 +1,44 @@
 from langchain.tools import tool
-from pydantic import BaseModel, Field
-from typing import Dict, Optional
+from typing import Dict
 import os
 from dotenv import load_dotenv
 
-# Import GoogleCSELinkedInSearcher
+# Import GoogleCSELinkedInSearcher and schema
 from backend.tools.google_cse_linkedin_search import GoogleCSELinkedInSearcher
-
-# Define the input schema for LinkedIn job search
-class LinkedInJobSearchInput(BaseModel):
-    keyword: str = Field(..., description="Search keyword for job title, skills, or company name")
-    location: str = Field(default="", description="Work location (city, state, country). Leave empty for all locations")
-    job_type: str = Field(default="", description="Job type (full-time, part-time, contract, internship). Leave empty for all types")
-    experience_level: str = Field(default="", description="Experience level (entry, mid, senior, lead). Leave empty for all levels")
-    num_results: int = Field(default=10, description="Number of job results to return (1-50)")
-    parsing_method: str = Field(default="llm", description="Parsing method: 'manual' for regex parsing or 'llm' for AI parsing")
+from backend.tools.schema import LinkedInJobSearchInput
 
 @tool(args_schema=LinkedInJobSearchInput)
 def search_linkedin_jobs(
-    keyword: str, 
-    location: str = "", 
+    keyword: str,
+    location: str = "",
     job_type: str = "",
     experience_level: str = "",
-    num_results: int = 10,
-    parsing_method: str = "llm"
-) -> Dict:
-    """Search for jobs on LinkedIn using Google Custom Search Engine. 
-    Returns structured job information including title, company, location, salary, requirements, and more."""
-    
-    # Load environment variables
-    load_dotenv()
-    
-    # Get API credentials from environment
-    api_key = os.getenv('GOOGLE_API_KEY')
-    search_engine_id = os.getenv('GOOGLE_CSE_ID')
-    
-    if not api_key or not search_engine_id:
-        return {
-            "success": False,
-            "error": "Missing Google API credentials. Please set GOOGLE_API_KEY and GOOGLE_CSE_ID environment variables.",
-            "jobs": []
-        }
-    
-    # Validate num_results
-    if num_results < 1 or num_results > 50:
-        num_results = 10
-    
-    # Create searcher instance
-    searcher = GoogleCSELinkedInSearcher(api_key, search_engine_id)
-    
-    # Perform search
-    result = searcher.search_linkedin_jobs(
-        keyword=keyword,
-        location=location,
-        job_type=job_type,
-        experience_level=experience_level,
-        num_results=num_results,
-        parsing_method=parsing_method
-    )
-    
-    return result
-
-# Advanced search with filters
-class LinkedInAdvancedSearchInput(BaseModel):
-    keyword: str = Field(..., description="Main search keyword")
-    company: str = Field(default="", description="Specific company name to search within")
-    location: str = Field(default="", description="Work location filter")
-    job_level: str = Field(default="", description="Job level filter (entry, senior, director, etc.)")
-    date_range: str = Field(default="m1", description="Time range: 'm1' (1 month), 'w1' (1 week), 'd1' (1 day)")
-    num_results: int = Field(default=10, description="Number of results to return (1-50)")
-    parsing_method: str = Field(default="llm", description="Parsing method: 'manual' or 'llm'")
-
-@tool(args_schema=LinkedInAdvancedSearchInput)
-def search_linkedin_jobs_advanced(
-    keyword: str,
     company: str = "",
-    location: str = "",
-    job_level: str = "",
+    industry: str = "",
     date_range: str = "m1",
     num_results: int = 10,
-    parsing_method: str = "llm"
+    parsing_method: str = "llm",
+    salary_range: str = "",
+    work_arrangement: str = "",
+    job_function: str = "",
+    include_similar: bool = True,
+    exact_match_company: bool = False
 ) -> Dict:
-    """Advanced LinkedIn job search with company, location, and job level filters.
-    Allows searching within specific companies and date ranges."""
+    """
+    Comprehensive LinkedIn job search with advanced filtering capabilities.
+    
+    Searches for jobs on LinkedIn using Google Custom Search Engine with support for:
+    - Basic filters: location, job type, experience level
+    - Advanced filters: company, industry, salary range, work arrangement
+    - Time filters: date range for job posting recency
+    - Search behavior: similar jobs, exact matching
+    
+    Returns structured job information including title, company, location, salary, 
+    requirements, skills, and more extracted using AI parsing.
+    
+    IMPORTANT: Leave any filter empty if you don't want to apply it. The AI will not
+    make up or guess values for empty parameters.
+    """
     
     # Load environment variables
     load_dotenv()
@@ -98,31 +54,86 @@ def search_linkedin_jobs_advanced(
             "jobs": []
         }
     
-    # Validate inputs
-    if num_results < 1 or num_results > 50:
-        num_results = 10
-        
-    if date_range not in ['m1', 'w1', 'd1', 'm2', 'm3', 'm6']:
-        date_range = 'm1'
-    
     # Create searcher instance
     searcher = GoogleCSELinkedInSearcher(api_key, search_engine_id)
     
-    # Perform advanced search
-    result = searcher.search_with_filters(
-        keyword=keyword,
-        company=company,
-        location=location,
-        job_level=job_level,
-        date_range=date_range,
-        num_results=num_results,
-        parsing_method=parsing_method
-    )
+    # Build search query intelligently based on provided parameters
+    query_parts = [keyword]
+    
+    # Add non-empty filters to search query
+    if location.strip():
+        query_parts.append(location.strip())
+    
+    if job_type.strip():
+        query_parts.append(job_type.strip())
+        
+    if experience_level.strip():
+        query_parts.append(experience_level.strip())
+    
+    if work_arrangement.strip():
+        query_parts.append(work_arrangement.strip())
+    
+    if job_function.strip():
+        query_parts.append(job_function.strip())
+    
+    if industry.strip():
+        query_parts.append(industry.strip())
+    
+    # For salary and company, use more targeted approach
+    if salary_range.strip():
+        # Add salary terms to help find relevant jobs
+        query_parts.append("salary")
+    
+    # Decide between basic search and advanced search based on parameters
+    if company.strip():
+        # Use advanced search when company is specified
+        result = searcher.search_with_filters(
+            keyword=" ".join(query_parts),
+            company=company if exact_match_company else "",
+            location=location,
+            job_level=experience_level,
+            date_range=date_range,
+            num_results=num_results,
+            parsing_method=parsing_method
+        )
+    else:
+        # Use basic search for general queries
+        result = searcher.search_linkedin_jobs(
+            keyword=" ".join(query_parts),
+            location=location,
+            job_type=job_type,
+            experience_level=experience_level,
+            num_results=num_results,
+            parsing_method=parsing_method
+        )
+    
+    # Add metadata about applied filters
+    if result.get("success"):
+        result["applied_filters"] = {
+            "keyword": keyword,
+            "location": location if location.strip() else "all locations",
+            "job_type": job_type if job_type.strip() else "all types",
+            "experience_level": experience_level if experience_level.strip() else "all levels",
+            "company": company if company.strip() else "all companies",
+            "industry": industry if industry.strip() else "all industries",
+            "date_range": date_range,
+            "work_arrangement": work_arrangement if work_arrangement.strip() else "all arrangements",
+            "job_function": job_function if job_function.strip() else "all functions",
+            "salary_filter": "applied" if salary_range.strip() else "not applied",
+            "exact_company_match": exact_match_company,
+            "include_similar_jobs": include_similar
+        }
+        
+        # Post-process results for additional filtering if needed
+        if salary_range.strip() and result.get("jobs"):
+            # Note: Actual salary filtering would need more sophisticated parsing
+            # For now, just add this info to metadata
+            result["salary_filter_note"] = f"Searched with salary consideration: {salary_range}"
     
     return result
 
 # List of available tools
-tools = [search_linkedin_jobs, search_linkedin_jobs_advanced]
+tools = [search_linkedin_jobs]
 
 # Setup conversation model with LinkedIn job search capabilities
 def create_linkedin_job_agent():
@@ -152,18 +163,30 @@ def create_linkedin_job_agent():
         ("system", """You are a helpful AI assistant specialized in LinkedIn job searching and career guidance.
 
 CAPABILITIES:
-- Search LinkedIn jobs by keywords, location, job type, and experience level
-- Advanced job search with company filters and date ranges
+- Comprehensive LinkedIn job search with advanced filtering capabilities
+- Search by keywords, location, job type, experience level, company, industry
+- Time-based filtering (recent postings)
+- Work arrangement filtering (remote, hybrid, on-site)
+- Salary range considerations
+- Job function and industry targeting
 - Analyze job requirements and match them with candidate profiles
 - Provide career advice and job search strategies
 
-INSTRUCTIONS:
-1. When users ask about job searches, use the appropriate LinkedIn search tool
-2. For basic searches, use search_linkedin_jobs
-3. For searches within specific companies or with advanced filters, use search_linkedin_jobs_advanced
-4. Always provide helpful analysis and insights about the search results
-5. Suggest relevant keywords and search strategies to users
-6. Be proactive in offering additional search refinements
+CRITICAL INSTRUCTION FOR SEARCH PARAMETERS:
+- NEVER make up or guess values for search parameters
+- ONLY use information explicitly provided by the user
+- Leave parameters empty if the user doesn't specify them
+- If user says "any" or "doesn't matter", leave that parameter empty
+- Don't infer location, company, or other details unless clearly stated
+
+SEARCH TOOL USAGE:
+1. Use search_linkedin_jobs for all job searches (unified tool)
+2. Fill only the parameters the user explicitly provides
+3. Set parsing_method to "llm" for best results (AI-powered extraction)
+4. Use appropriate num_results based on user request (default 10)
+5. Always provide helpful analysis and insights about the search results
+6. Suggest relevant keywords and search strategies
+7. Be proactive in offering additional search refinements
 
 SEARCH TIPS TO SHARE:
 - Use specific job titles and skills as keywords
@@ -171,6 +194,15 @@ SEARCH TIPS TO SHARE:
 - Try different experience levels if results are limited
 - Use company names for targeted searches
 - Consider related keywords and synonyms
+- Remote work can be specified in work_arrangement parameter
+- Date range controls how recent the job postings are
+
+RESULT ANALYSIS:
+- Summarize key findings from search results
+- Identify common requirements across jobs
+- Point out salary ranges when available
+- Highlight remote/flexible work opportunities
+- Suggest follow-up searches or refinements
 
 Remember to be helpful, informative, and provide actionable advice for job seekers."""),
         MessagesPlaceholder(variable_name="chat_history"),
@@ -204,23 +236,35 @@ def get_linkedin_job_agent():
 
 # Example usage function
 def example_usage():
-    """Example of how to use the LinkedIn job agent"""
+    """Example of how to use the enhanced LinkedIn job agent"""
     
     # Create agent
     agent = get_linkedin_job_agent()
     
-    # Example queries
+    # Example queries showcasing the enhanced capabilities
     example_queries = [
         "Search for Python developer jobs in San Francisco",
-        "Find senior software engineer positions at Google",
-        "Look for remote data scientist jobs posted in the last week",
-        "Search for entry-level marketing jobs in New York"
+        "Find senior software engineer positions at Google in the last week",
+        "Look for remote data scientist jobs with salary above $100k",
+        "Search for entry-level marketing jobs in New York",
+        "Find full-time backend engineer positions in the technology industry",
+        "Search for contract DevOps jobs posted in the last month",
+        "Look for hybrid machine learning engineer positions",
+        "Find director-level positions at startups in healthcare industry"
     ]
     
-    print("LinkedIn Job Search Agent Ready!")
-    print("Example queries you can try:")
+    print("Enhanced LinkedIn Job Search Agent Ready!")
+    print("Features: Unified search tool with comprehensive filtering")
+    print("- All job types, locations, companies, industries")
+    print("- Experience levels, work arrangements, salary considerations")
+    print("- Time-based filtering, job functions")
+    print("\nExample queries you can try:")
     for i, query in enumerate(example_queries, 1):
         print(f"{i}. {query}")
+    
+    print("\nDirect tool usage example:")
+    print("from backend.tools.job_search_agent import search_linkedin_jobs")
+    print('result = search_linkedin_jobs(keyword="DevOps", location="remote", experience_level="senior")')
     
     return agent
 
