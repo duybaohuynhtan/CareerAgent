@@ -8,11 +8,12 @@ import os
 from dotenv import load_dotenv
 
 # Import for LLM parsing
-from langchain.utils.openai_functions import convert_pydantic_to_openai_function
+from langchain_core.utils.function_calling import convert_to_openai_function
 from langchain.prompts import ChatPromptTemplate
 from langchain.output_parsers.openai_functions import JsonOutputFunctionsParser
 from langchain_groq import ChatGroq
-from backend.tools.schema import JobSchema
+from schema import JobSchema
+from manual_parser import LinkedInJobManualParser
 
 class GoogleCSELinkedInSearcher:
     def __init__(self, api_key: str, search_engine_id: str):
@@ -26,6 +27,9 @@ class GoogleCSELinkedInSearcher:
         self.api_key = api_key
         self.search_engine_id = search_engine_id
         self.base_url = "https://www.googleapis.com/customsearch/v1"
+        
+        # Initialize manual parser
+        self.manual_parser = LinkedInJobManualParser()
                 
         try:
             load_dotenv()
@@ -42,7 +46,7 @@ class GoogleCSELinkedInSearcher:
     def _setup_llm_extraction_chain(self):
         """Setup LLM extraction chain for job parsing"""
         try:
-            extraction_functions = [convert_pydantic_to_openai_function(JobSchema)]
+            extraction_functions = [convert_to_openai_function(JobSchema)]
             extraction_model = self.llm_model.bind(
                 functions=extraction_functions, 
                 function_call={"name": "JobSchema"}
@@ -54,14 +58,25 @@ class GoogleCSELinkedInSearcher:
 CRITICAL INSTRUCTIONS:
 1. Extract ONLY information explicitly present in the provided content
 2. DO NOT guess, infer, or make up any information
-3. For ANY missing information, you MUST use the string "None" (never null, never empty string)
-4. Be thorough in extracting all available details about job requirements, skills, company info, etc.
-5. Parse salary information carefully, separating min/max if range is provided
-6. Extract all mentioned technologies, programming languages, and skills into appropriate lists
-7. Identify work arrangement (Remote/Hybrid/On-site) from location or description
-8. Parse seniority level from job title or description (Entry/Mid/Senior/Lead/Director)
+3. For missing STRING fields, use the string "None" (never null, never empty string)
+4. For missing ARRAY/LIST fields, use an empty array [] (never string "None" or null)
+5. Be thorough in extracting all available details about job requirements, skills, company info, etc.
+6. Parse salary information carefully, separating min/max if range is provided
+7. Extract all mentioned technologies, programming languages, and skills into appropriate lists
+8. Identify work arrangement (Remote/Hybrid/On-site) from location or description
+9. Parse seniority level from job title or description (Entry/Mid/Senior/Lead/Director)
 
-Remember: Use "None" string for any field where information is not explicitly available."""),
+FIELD TYPE RULES:
+- String fields (title, location, etc.): Use "None" if missing
+- Array fields (skills, technologies, requirements, etc.): Use [] if missing, never "None"
+- Always return arrays for: soft_skills, education_requirements, benefits, certifications_required, languages_required, technologies, responsibilities, preferred_skills, experience_requirements
+
+EXAMPLE CORRECT FORMAT:
+- required_skills: ["Python", "Django"] (if skills found) or [] (if no skills found)
+- technologies: ["React", "Node.js"] (if found) or [] (if not found)  
+- responsibilities: ["Develop APIs", "Code review"] (if found) or [] (if not found)
+
+Remember: Arrays must always be arrays [], never string "None"."""),
                 ("human", "Title: {title}\nURL: {url}\nSnippet: {snippet}")
             ])
             
@@ -70,53 +85,113 @@ Remember: Use "None" string for any field where information is not explicitly av
             print(f"Error setting up LLM extraction chain: {e}")
             self.llm_available = False
     
-    def search_linkedin_jobs(self, 
-                           keyword: str, 
-                           location: str = "", 
-                           job_type: str = "",
-                           experience_level: str = "",
-                           num_results: int = 10,
-                           parsing_method: str = "manual") -> Dict:
+    def search_jobs(self, 
+                    keyword: str,
+                    location: str = "",
+                    job_type: str = "",
+                    experience_level: str = "",
+                    company: str = "",
+                    industry: str = "",
+                    date_range: str = "m1",
+                    num_results: int = 10,
+                    parsing_method: str = "llm",
+                    salary_range: str = "",
+                    work_arrangement: str = "",
+                    job_function: str = "",
+                    include_similar: bool = True,
+                    exact_match_company: bool = False) -> Dict:
         """
-        Searches for jobs on LinkedIn using Google Custom Search Engine
+        Unified search method for LinkedIn jobs with comprehensive filtering capabilities.
+        
+        This method combines both basic and advanced search functionality into a single
+        comprehensive search interface.
         
         Args:
-            keyword (str): Search keyword (location, company, skill)
-            location (str): Work location
-            job_type (str): Job type (full-time, part-time, contract, etc.)
-            experience_level (str): Experience level (entry, mid, senior)
-            num_results (int): Number of results to fetch
-            parsing_method (str): "manual" for regex parsing or "llm" for LLM parsing
+            keyword (str): Main search keyword (job title, skills, technology, company name)
+            location (str): Work location (city, state, country, or 'remote')
+            job_type (str): Employment type (full-time, part-time, contract, internship, etc.)
+            experience_level (str): Experience level (entry, junior, mid, senior, lead, director, etc.)
+            company (str): Specific company name to search within
+            industry (str): Industry sector (technology, healthcare, finance, etc.)
+            date_range (str): Job posting recency (d1, w1, m1, m2, m3, m6)
+            num_results (int): Number of job results to return (1-50)
+            parsing_method (str): Data extraction method ('llm' or 'manual')
+            salary_range (str): Salary range filter (e.g., '$100k-150k')
+            work_arrangement (str): Work arrangement (remote, hybrid, on-site, flexible)
+            job_function (str): Job function category (engineering, marketing, sales, design)
+            include_similar (bool): Include similar/related job titles
+            exact_match_company (bool): Require exact company name match
             
         Returns:
-            Dict: Search result with job information
+            Dict: Comprehensive search result with job information and metadata
         """
         try:
-            # Validate parsing method
+            # Validate and adjust parameters
             if parsing_method == "llm" and not self.llm_available:
                 print("Warning: LLM parsing requested but not available. Using manual parsing.")
                 parsing_method = "manual"
             
-            # Build query string for LinkedIn
+            # Validate date range
+            valid_date_ranges = ['d1', 'w1', 'm1', 'm2', 'm3', 'm6', 'y1']
+            if date_range not in valid_date_ranges:
+                date_range = 'm1'
+            
+            # Validate num_results
+            num_results = max(1, min(num_results, 50))
+            
+            # Build comprehensive query string
             query_parts = [keyword]
             
-            if location:
-                query_parts.append(location)
+            # Add filters to query if they're specified
+            filters_added = []
             
-            if job_type:
-                query_parts.append(job_type)
+            if location.strip():
+                query_parts.append(location.strip())
+                filters_added.append(f"location: {location}")
+            
+            if job_type.strip():
+                query_parts.append(job_type.strip())
+                filters_added.append(f"job_type: {job_type}")
                 
-            if experience_level:
-                query_parts.append(experience_level)
+            if experience_level.strip():
+                query_parts.append(experience_level.strip())
+                filters_added.append(f"experience: {experience_level}")
             
-            # Create query with site restriction
+            if work_arrangement.strip():
+                query_parts.append(work_arrangement.strip())
+                filters_added.append(f"work_arrangement: {work_arrangement}")
+            
+            if job_function.strip():
+                query_parts.append(job_function.strip())
+                filters_added.append(f"function: {job_function}")
+            
+            if industry.strip():
+                query_parts.append(industry.strip())
+                filters_added.append(f"industry: {industry}")
+            
+            # Handle company search with exact matching
+            if company.strip():
+                if exact_match_company:
+                    query_parts.append(f'\"{company.strip()}\"')
+                    filters_added.append(f"exact_company: {company}")
+                else:
+                    query_parts.append(company.strip())
+                    filters_added.append(f"company: {company}")
+            
+            # Add salary-related terms if specified
+            if salary_range.strip():
+                query_parts.append("salary")
+                filters_added.append(f"salary_filter: {salary_range}")
+            
+            # Create final query with site restriction
             query = f"site:linkedin.com/jobs {' '.join(query_parts)}"
             
+            # Collect all jobs from multiple API calls
             all_jobs = []
             start_index = 1
             
-            # Google CSE only allows 10 results per request, max 100 results total
-            while len(all_jobs) < num_results and start_index <= 99:  # 99 to ensure not to exceed 100
+            # Google CSE allows max 100 results total, 10 per request
+            while len(all_jobs) < num_results and start_index <= 91:  # 91 to ensure not to exceed 100
                 batch_size = min(10, num_results - len(all_jobs))
                 
                 # Parameters for Google CSE API
@@ -126,7 +201,7 @@ Remember: Use "None" string for any field where information is not explicitly av
                     'q': query,
                     'num': batch_size,
                     'start': start_index,
-                    'dateRestrict': 'm1',  # Last month
+                    'dateRestrict': date_range,
                     'safe': 'medium',
                     'fields': 'items(title,link,snippet,displayLink)'
                 }
@@ -141,9 +216,9 @@ Remember: Use "None" string for any field where information is not explicitly av
                 if parsing_method == "llm":
                     batch_jobs = self._parse_search_results_llm(search_data)
                 else:
-                    batch_jobs = self._parse_search_results(search_data)
+                    batch_jobs = self.manual_parser.parse_search_results(search_data)
                 
-                if not batch_jobs:  # No more results
+                if not batch_jobs:  # No more results available
                     break
                     
                 all_jobs.extend(batch_jobs)
@@ -155,26 +230,59 @@ Remember: Use "None" string for any field where information is not explicitly av
             # Trim to exact number requested
             final_jobs = all_jobs[:num_results]
             
-            return {
+            # Build comprehensive result metadata
+            result = {
                 "success": True,
                 "query": query,
                 "total_found": len(final_jobs),
                 "jobs": final_jobs,
                 "parsing_method": parsing_method,
-                "source": "google_cse_api"
+                "source": "google_cse_api",
+                "search_metadata": {
+                    "filters_applied": filters_added,
+                    "date_range": date_range,
+                    "include_similar": include_similar,
+                    "exact_company_match": exact_match_company,
+                    "requested_results": num_results,
+                    "actual_results": len(final_jobs)
+                }
             }
+            
+            # Add detailed filter information for better transparency
+            result["applied_filters"] = {
+                "keyword": keyword,
+                "location": location if location.strip() else "all locations",
+                "job_type": job_type if job_type.strip() else "all types",
+                "experience_level": experience_level if experience_level.strip() else "all levels",
+                "company": company if company.strip() else "all companies",
+                "industry": industry if industry.strip() else "all industries",
+                "date_range": date_range,
+                "work_arrangement": work_arrangement if work_arrangement.strip() else "all arrangements",
+                "job_function": job_function if job_function.strip() else "all functions",
+                "salary_filter": "applied" if salary_range.strip() else "not applied",
+                "exact_company_match": exact_match_company,
+                "include_similar_jobs": include_similar
+            }
+            
+            # Add salary filter note if applied
+            if salary_range.strip():
+                result["salary_filter_note"] = f"Searched with salary consideration: {salary_range}"
+            
+            return result
             
         except requests.exceptions.RequestException as e:
             return {
                 "success": False,
                 "error": f"API request failed: {str(e)}",
-                "jobs": []
+                "jobs": [],
+                "query": f"site:linkedin.com/jobs {keyword}"
             }
         except Exception as e:
             return {
                 "success": False,
                 "error": f"Unexpected error: {str(e)}",
-                "jobs": []
+                "jobs": [],
+                "query": f"site:linkedin.com/jobs {keyword}"
             }
     
     def _parse_search_results_llm(self, search_data: Dict) -> List[Dict]:
@@ -220,298 +328,11 @@ Remember: Use "None" string for any field where information is not explicitly av
                 except Exception as e:
                     print(f"Error parsing job with LLM: {e}")
                     # Fallback to manual parsing for this item
-                    manual_job = self._extract_job_info(item)
+                    manual_job = self.manual_parser.extract_job_info(item)
                     if manual_job:
                         jobs.append(manual_job)
         
         return jobs
-
-    def _parse_search_results(self, search_data: Dict) -> List[Dict]:
-        """
-        Parses results from Google CSE API using manual methods
-        
-        Args:
-            search_data (Dict): Data returned from the API
-            
-        Returns:
-            List[Dict]: List of parsed jobs
-        """
-        jobs = []
-        
-        if 'items' not in search_data:
-            return jobs
-        
-        for item in search_data['items']:
-            if 'linkedin.com/jobs' in item.get('link', ''):
-                job_info = self._extract_job_info(item)
-                if job_info:
-                    jobs.append(job_info)
-        
-        return jobs
-    
-    def _extract_job_info(self, item: Dict) -> Optional[Dict]:
-        """
-        Extracts job information from Google CSE search result
-        
-        Args:
-            item (Dict): An item from Google CSE results
-            
-        Returns:
-            Optional[Dict]: Job information or None if not valid
-        """
-        try:
-            url = item.get('link', '')
-            title = item.get('title', '')
-            snippet = item.get('snippet', '')
-            
-            # Extract job ID from URL
-            job_id_match = re.search(r'/jobs/view/(\d+)', url)
-            job_id = job_id_match.group(1) if job_id_match else None
-            
-            # Clean title (remove common Google search artifacts)
-            clean_title = self._clean_title(title)
-            
-            # Extract company name from title or snippet
-            company = self._extract_company_name(clean_title, snippet)
-            
-            # Extract location from snippet
-            location = self._extract_location(snippet)
-            
-            # Extract job type from snippet
-            job_type = self._extract_job_type(snippet)
-            
-            # Extract salary info if any
-            salary = self._extract_salary(snippet)
-            
-            # Extract posting date if any
-            posted_date = self._extract_posted_date(snippet)
-            
-            return {
-                "job_id": job_id,
-                "title": clean_title,
-                "company": company,
-                "location": location,
-                "job_type": job_type,
-                "salary": salary,
-                "posted_date": posted_date,
-                "description": snippet,
-                "url": url,
-                "source": "linkedin"
-            }
-            
-        except Exception as e:
-            print(f"Error extracting job info: {e}")
-            return None
-    
-    def _clean_title(self, title: str) -> str:
-        """Cleans up title from Google search results"""
-        # Remove common artifacts like " - LinkedIn"
-        clean = re.sub(r'\s*-\s*LinkedIn.*$', '', title)
-        clean = re.sub(r'\s*\|\s*LinkedIn.*$', '', clean)
-        clean = re.sub(r'\s*–\s*LinkedIn.*$', '', clean)
-        return clean.strip()
-    
-    def _extract_company_name(self, title: str, snippet: str) -> str:
-        """Extracts company name from title or snippet"""
-        # Patterns for company names in LinkedIn job titles
-        company_patterns = [
-            r'at\s+([^·\-\|]+?)(?:\s*[·\-\|]|\s*$)',
-            r'·\s*([^·\-\|]+?)(?:\s*[·\-\|]|\s*$)',
-            r'-\s*([^·\-\|]+?)(?:\s*[·\-\|]|\s*$)',
-            r'\|\s*([^·\-\|]+?)(?:\s*[·\-\|]|\s*$)',
-        ]
-        
-        for pattern in company_patterns:
-            match = re.search(pattern, title, re.IGNORECASE)
-            if match:
-                company = match.group(1).strip()
-                if len(company) > 2 and not any(word in company.lower() for word in ['job', 'career', 'hiring', 'posted']):
-                    return company
-        
-        # Look in snippet for company info
-        snippet_patterns = [
-            r'Company:\s*([^\n\.\,]+)',
-            r'Organization:\s*([^\n\.\,]+)',
-            r'Employer:\s*([^\n\.\,]+)',
-            r'Job at\s+([^\n\.\,]+)',
-            r'Position at\s+([^\n\.\,]+)',
-        ]
-        
-        for pattern in snippet_patterns:
-            match = re.search(pattern, snippet, re.IGNORECASE)
-            if match:
-                company = match.group(1).strip()
-                if len(company) > 2:
-                    return company
-        
-        return "Unknown Company"
-    
-    def _extract_location(self, snippet: str) -> str:
-        """Extracts location from snippet"""
-        location_patterns = [
-            r'Location:\s*([^\n\.\,]+)',
-            r'Based in:\s*([^\n\.\,]+)',
-            r'Office location:\s*([^\n\.\,]+)',
-            r'([A-Za-z\s]+,\s*[A-Za-z\s]+(?:,\s*[A-Za-z\s]+)?)',  # City, State/Country pattern
-            r'Remote\s*-\s*([^\n\.\,]+)',
-            r'Hybrid\s*-\s*([^\n\.\,]+)',
-        ]
-        
-        for pattern in location_patterns:
-            matches = re.findall(pattern, snippet, re.IGNORECASE)
-            for match in matches:
-                if isinstance(match, tuple):
-                    location = match[0] if match else ""
-                else:
-                    location = match
-                    
-                location = location.strip()
-                
-                # Filter out common non-location text
-                if (len(location) > 2 and 
-                    not any(word in location.lower() for word in ['experience', 'years', 'apply', 'job', 'position', 'role'])):
-                    return location
-        
-        # Check for remote/hybrid work
-        if re.search(r'\b(remote|work from home|wfh)\b', snippet, re.IGNORECASE):
-            return "Remote"
-        if re.search(r'\bhybrid\b', snippet, re.IGNORECASE):
-            return "Hybrid"
-        
-        return "Location not specified"
-    
-    def _extract_job_type(self, snippet: str) -> str:
-        """Extracts job type from snippet"""
-        job_type_patterns = [
-            r'\b(Full[- ]time|Part[- ]time|Contract|Freelance|Internship|Temporary|Permanent)\b',
-            r'Employment Type:\s*([^\n\.\,]+)',
-            r'Job Type:\s*([^\n\.\,]+)',
-            r'Position Type:\s*([^\n\.\,]+)',
-        ]
-        
-        for pattern in job_type_patterns:
-            match = re.search(pattern, snippet, re.IGNORECASE)
-            if match:
-                job_type = match.group(1).strip() if len(match.groups()) >= 1 else match.group(0).strip()
-                return job_type
-        
-        return "Not specified"
-    
-    def _extract_salary(self, snippet: str) -> str:
-        """Extracts salary info from snippet"""
-        salary_patterns = [
-            r'\$[\d,]+(?:\s*-\s*\$[\d,]+)?(?:\s*(?:per\s+)?(?:year|month|hour|annually))?',
-            r'[\d,]+\s*-\s*[\d,]+\s*(?:USD|VND|EUR|GBP)',
-            r'Salary:\s*([^\n\.\,]+)',
-            r'Compensation:\s*([^\n\.\,]+)',
-            r'Pay:\s*([^\n\.\,]+)',
-        ]
-        
-        for pattern in salary_patterns:
-            match = re.search(pattern, snippet, re.IGNORECASE)
-            if match:
-                return match.group(0) if pattern.startswith(r'\$') or pattern.startswith(r'[\d,]+') else match.group(1)
-        
-        return "Not specified"
-    
-    def _extract_posted_date(self, snippet: str) -> str:
-        """Extracts posted date from snippet"""
-        date_patterns = [
-            r'Posted:\s*([^\n\.\,]+)',
-            r'Published:\s*([^\n\.\,]+)',
-            r'(\d+)\s+(?:days?|hours?|weeks?|months?)\s+ago',
-            r'(\d{1,2}/\d{1,2}/\d{4})',
-            r'(\d{4}-\d{2}-\d{2})',
-        ]
-        
-        for pattern in date_patterns:
-            match = re.search(pattern, snippet, re.IGNORECASE)
-            if match:
-                return match.group(1) if len(match.groups()) >= 1 else match.group(0)
-        
-        return "Date not specified"
-    
-    def search_with_filters(self, 
-                          keyword: str,
-                          company: str = "",
-                          location: str = "",
-                          job_level: str = "",
-                          date_range: str = "m1",  # m1=1 month, w1=1 week, d1=1 day
-                          num_results: int = 10,
-                          parsing_method: str = "manual") -> Dict:
-        """
-        Searches with advanced filters
-        
-        Args:
-            keyword (str): Main keyword
-            company (str): Specific company name
-            location (str): Location
-            job_level (str): Job level
-            date_range (str): Time range (m1, w1, d1)
-            num_results (int): Number of results
-            parsing_method (str): "manual" for regex parsing or "llm" for LLM parsing
-            
-        Returns:
-            Dict: Search result
-        """
-        # Validate parsing method
-        if parsing_method == "llm" and not self.llm_available:
-            print("Warning: LLM parsing requested but not available. Using manual parsing.")
-            parsing_method = "manual"
-        
-        query_parts = [keyword]
-        
-        if company:
-            query_parts.append(f'"{company}"')
-        if location:
-            query_parts.append(f'"{location}"')
-        if job_level:
-            query_parts.append(f'"{job_level}"')
-            
-        query = f"site:linkedin.com/jobs {' '.join(query_parts)}"
-        
-        try:
-            params = {
-                'key': self.api_key,
-                'cx': self.search_engine_id,
-                'q': query,
-                'num': min(num_results, 10),
-                'dateRestrict': date_range,
-                'safe': 'medium'
-            }
-            
-            response = requests.get(self.base_url, params=params)
-            response.raise_for_status()
-            
-            search_data = response.json()
-            
-            # Parse results based on chosen method
-            if parsing_method == "llm":
-                jobs = self._parse_search_results_llm(search_data)
-            else:
-                jobs = self._parse_search_results(search_data)
-            
-            return {
-                "success": True,
-                "query": query,
-                "filters": {
-                    "company": company,
-                    "location": location,
-                    "job_level": job_level,
-                    "date_range": date_range
-                },
-                "total_found": len(jobs),
-                "jobs": jobs,
-                "parsing_method": parsing_method,
-                "source": "google_cse_api"
-            }
-            
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e),
-                "jobs": []
-            }
 
 
 def search_linkedin_jobs_google(api_key: str, 
@@ -521,8 +342,8 @@ def search_linkedin_jobs_google(api_key: str,
                               job_type: str = "",
                               experience_level: str = "",
                               num_results: int = 10,
-                              parsing_method: str = "manual",
-                              ) -> Dict:
+                              parsing_method: str = "llm",
+                              **kwargs) -> Dict:
     """
     Utility function to search LinkedIn jobs using Google CSE API
     
@@ -535,16 +356,18 @@ def search_linkedin_jobs_google(api_key: str,
         experience_level (str): Experience level
         num_results (int): Number of results
         parsing_method (str): "manual" for regex parsing or "llm" for LLM parsing
+        **kwargs: Additional parameters for advanced search
         
     Returns:
         Dict: Search result
     """
     searcher = GoogleCSELinkedInSearcher(api_key, search_engine_id)
-    return searcher.search_linkedin_jobs(
+    return searcher.search_jobs(
         keyword=keyword,
         location=location,
         job_type=job_type,
         experience_level=experience_level,
         num_results=num_results,
-        parsing_method=parsing_method
+        parsing_method=parsing_method,
+        **kwargs
     )
