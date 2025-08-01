@@ -14,7 +14,6 @@ export interface ModelOption {
 
 export interface ChatRequest {
     message: string;
-    model: string;
     chatHistory: ChatMessage[];
 }
 
@@ -22,4 +21,14 @@ export interface ChatResponse {
     response: string;
     success: boolean;
     error?: string;
+}
+
+export interface UpdateModelRequest {
+    model: string;
+}
+
+export interface UpdateModelResponse {
+    success: boolean;
+    message: string;
+    current_model: string;
 }

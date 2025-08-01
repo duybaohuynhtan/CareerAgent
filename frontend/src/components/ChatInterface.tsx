@@ -5,13 +5,14 @@ import { Trash2, MessageSquare } from 'lucide-react';
 import { ChatMessage, ModelOption } from '@/types/chat';
 import { apiClient } from '@/lib/api';
 import { generateId } from '@/lib/utils';
+
 import ModelSelector from './ModelSelector';
 import ChatMessageComponent from './ChatMessage';
 import ChatInput from './ChatInput';
 
 export default function ChatInterface() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [selectedModel, setSelectedModel] = useState('deepseek-r1-distill-llama-70b');
+    const [selectedModel, setSelectedModel] = useState('llama-3.3-70b-versatile');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -22,6 +23,21 @@ export default function ChatInterface() {
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
+
+    // Load current model from backend on component mount
+    useEffect(() => {
+        const loadCurrentModel = async () => {
+            try {
+                const modelInfo = await apiClient.getCurrentModel();
+                if (modelInfo) {
+                    setSelectedModel(modelInfo.current_model);
+                }
+            } catch (error) {
+                console.error('Failed to load current model:', error);
+            }
+        };
+        loadCurrentModel();
+    }, []);
 
     // Welcome message
     useEffect(() => {
@@ -43,6 +59,21 @@ Please share your CV or let me know what type of job you're looking for!`,
             setMessages([welcomeMessage]);
         }
     }, []);
+
+    const handleModelChange = async (modelId: string) => {
+        try {
+            const response = await apiClient.updateModel({ model: modelId });
+            if (response.success) {
+                setSelectedModel(modelId);
+                console.log('Model updated successfully:', response.message);
+            } else {
+                console.error('Failed to update model:', response.message);
+                // Optionally show error to user
+            }
+        } catch (error) {
+            console.error('Error updating model:', error);
+        }
+    };
 
     const handleSendMessage = async (content: string) => {
         if (isLoading) return;
@@ -68,7 +99,6 @@ Please share your CV or let me know what type of job you're looking for!`,
         try {
             const response = await apiClient.sendChatMessage({
                 message: content,
-                model: selectedModel,
                 chatHistory: messages,
             });
 
@@ -129,7 +159,7 @@ Please share your CV or let me know what type of job you're looking for!`,
                 <div className="flex items-center gap-3">
                     <ModelSelector
                         selectedModel={selectedModel}
-                        onModelChange={setSelectedModel}
+                        onModelChange={handleModelChange}
                     />
                     <button
                         onClick={clearChat}

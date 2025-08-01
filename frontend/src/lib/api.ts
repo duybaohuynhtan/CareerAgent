@@ -1,4 +1,4 @@
-import { ChatRequest, ChatResponse } from '@/types/chat';
+import { ChatRequest, ChatResponse, UpdateModelRequest, UpdateModelResponse } from '@/types/chat';
 
 const API_BASE_URL = process.env.NODE_ENV === 'production'
     ? 'https://your-backend-url.com'
@@ -43,6 +43,44 @@ export class ApiClient {
             return response.ok;
         } catch {
             return false;
+        }
+    }
+
+    async getCurrentModel(): Promise<{ current_model: string, available_models: string[] } | null> {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/model`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Get model error:', error);
+            return null;
+        }
+    }
+
+    async updateModel(request: UpdateModelRequest): Promise<UpdateModelResponse> {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/model`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(request),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Update model error:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Unknown error',
+                current_model: 'unknown'
+            };
         }
     }
 }
