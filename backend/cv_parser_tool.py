@@ -1,0 +1,127 @@
+"""
+CV Parser Tool for the Job Search Agent.
+
+This module provides tools to parse CV/resume from text or PDF files
+and extract structured information using LLM.
+"""
+
+from langchain.tools import tool
+from typing import Dict, Union
+import os
+from cv_parser import CVParser, read_pdf
+from schema import CVParseInput
+
+
+@tool(args_schema=CVParseInput)
+def parse_cv_content(
+    content: str,
+    content_type: str = "text", 
+    model_name: str = "deepseek-r1-distill-llama-70b"
+) -> Dict:
+    """
+    Parse CV/resume from text content or PDF file and extract structured information.
+    
+    This tool can analyze resumes and extract comprehensive information including:
+    - Personal information and contact details
+    - Work experience with detailed job history
+    - Education background
+    - Technical and soft skills
+    - Certifications and achievements
+    - Projects and portfolio information
+    - Career preferences and availability
+    
+    Args:
+        content: CV content as text OR file path to PDF file
+        content_type: 'text' for direct text input or 'pdf' for PDF file path
+        model_name: LLM model name to use for parsing
+    
+    Returns:
+        Dict: Structured CV information according to ResumeSchema with parsing status
+    """
+    try:
+        # Initialize CV parser
+        parser = CVParser(model_name=model_name)
+        
+        if content_type.lower() == "pdf":
+            # Parse from PDF file
+            if not os.path.exists(content):
+                return {
+                    "success": False,
+                    "error": f"PDF file not found: {content}",
+                    "data": None
+                }
+            
+            result = parser.parse_resume_from_pdf(content)
+        
+        elif content_type.lower() == "text":
+            # Parse from text content
+            if not content or content.strip() == "":
+                return {
+                    "success": False,
+                    "error": "CV text content is empty",
+                    "data": None
+                }
+            
+            result = parser.parse_resume_from_text(content)
+        
+        else:
+            return {
+                "success": False,
+                "error": f"Invalid content_type: {content_type}. Must be 'text' or 'pdf'",
+                "data": None
+            }
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error parsing CV: {str(e)}",
+            "data": None
+        }
+
+
+@tool
+def extract_pdf_text(pdf_path: str) -> Dict:
+    """
+    Extract text content from a PDF file.
+    
+    This tool is useful for reading PDF resumes before parsing them
+    or for manual review of the text content.
+    
+    Args:
+        pdf_path: Path to the PDF file
+    
+    Returns:
+        Dict: Extracted text content and extraction status
+    """
+    try:
+        if not os.path.exists(pdf_path):
+            return {
+                "success": False,
+                "error": f"PDF file not found: {pdf_path}",
+                "text": ""
+            }
+        
+        text_content = read_pdf(pdf_path)
+        
+        if not text_content or text_content.strip() == "":
+            return {
+                "success": False,
+                "error": "Could not extract text from PDF or PDF is empty",
+                "text": ""
+            }
+        
+        return {
+            "success": True,
+            "text": text_content,
+            "file_path": pdf_path,
+            "character_count": len(text_content)
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error extracting text from PDF: {str(e)}",
+            "text": ""
+        }
