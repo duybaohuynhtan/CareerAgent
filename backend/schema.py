@@ -235,6 +235,29 @@ class JobSchema(BaseModel):
 
 
 # =============================================================================
+# Tool Input Schemas
+# =============================================================================
+
+class CVParseInput(BaseModel):
+    """Input schema for CV parsing tools"""
+    content: str = Field(..., description="CV content as text OR file path to PDF file")
+    content_type: str = Field(default="text", description="Type of content: 'text' for direct text input or 'pdf' for PDF file path")
+    model_name: str = Field(default="deepseek-r1-distill-llama-70b", description="LLM model name to use for parsing")
+
+
+class JobSearchFromCVInput(BaseModel):
+    """Input schema for CV-based job search tool"""
+    cv_content: str = Field(..., description="CV content as text OR file path to PDF file")
+    cv_content_type: str = Field(default="text", description="Type of CV content: 'text' for direct text input or 'pdf' for PDF file path")
+    location: str = Field(default="", description="Preferred job location (city, state, country). Leave empty to use location from CV or search all locations")
+    job_type: str = Field(default="", description="Preferred employment type: full-time, part-time, contract, internship. Leave empty to search all types")
+    work_arrangement: str = Field(default="", description="Preferred work arrangement: remote, hybrid, on-site. Leave empty to search all arrangements")
+    num_results: int = Field(default=10, description="Number of job results to return (1-50)", ge=1, le=50)
+    include_entry_level: bool = Field(default=False, description="Include entry-level positions even for experienced candidates")
+    model_name: str = Field(default="deepseek-r1-distill-llama-70b", description="LLM model name to use")
+
+
+# =============================================================================
 # LinkedIn Job Search Schema
 # =============================================================================
 
