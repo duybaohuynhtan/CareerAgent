@@ -24,7 +24,7 @@ def search_linkedin_jobs(
     company: str = "",
     industry: str = "",
     date_range: str = "m1",
-    num_results: int = 10,
+    num_results: int = 5,
     parsing_method: str = "llm",
     salary_range: str = "",
     work_arrangement: str = "",
@@ -131,7 +131,7 @@ SEARCH TOOL USAGE:
 1. Use search_linkedin_jobs for all job searches (unified tool)
 2. Fill only the parameters the user explicitly provides
 3. Set parsing_method to "llm" for best results (AI-powered extraction)
-4. Use appropriate num_results based on user request (default 10)
+4. Use appropriate num_results based on user request (default 5)
 5. Always provide helpful analysis and insights about the search results
 6. Suggest relevant keywords and search strategies
 7. Be proactive in offering additional search refinements
@@ -193,12 +193,3 @@ Remember: Users are searching for jobs, so they need to see detailed job listing
     )
     
     return agent_executor
-
-# Convenience function to get a ready-to-use agent
-def get_linkedin_job_agent(model_name: str = "deepseek-r1-distill-llama-70b"):
-    """Get a LinkedIn job search agent ready for conversation
-    
-    Args:
-        model_name (str): LLM model name to use for the agent
-    """
-    return create_linkedin_job_agent(model_name=model_name)

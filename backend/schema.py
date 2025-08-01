@@ -261,7 +261,7 @@ class LinkedInJobSearchInput(BaseModel):
     date_range: str = Field(default="m1", description="Job posting recency: 'd1' (past day), 'w1' (past week), 'm1' (past month), 'm2' (past 2 months), 'm3' (past 3 months), 'm6' (past 6 months)")
     
     # Search parameters
-    num_results: int = Field(default=10, description="Number of job results to return (1-50)", ge=1, le=50)
+    num_results: int = Field(default=5, description="Number of job results to return (1-50)", ge=1, le=50)
     parsing_method: str = Field(default="llm", description="Data extraction method: 'llm' for AI-powered parsing (recommended) or 'manual' for regex-based parsing")
     
     # Advanced filters
@@ -297,4 +297,3 @@ class LinkedInJobSearchInput(BaseModel):
                 return v  # Let validation handle required fields
             return ""  # Optional fields can be empty
         return v
-

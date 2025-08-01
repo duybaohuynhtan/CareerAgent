@@ -225,32 +225,3 @@ class LinkedInJobManualParser:
                 return match.group(1) if len(match.groups()) >= 1 else match.group(0)
         
         return "Date not specified"
-
-
-# Utility functions for backward compatibility
-def parse_search_results_manual(search_data: Dict) -> List[Dict]:
-    """
-    Utility function to parse search results using manual parser
-    
-    Args:
-        search_data (Dict): Data returned from Google CSE API
-        
-    Returns:
-        List[Dict]: List of parsed jobs
-    """
-    parser = LinkedInJobManualParser()
-    return parser.parse_search_results(search_data)
-
-
-def extract_job_info_manual(item: Dict) -> Optional[Dict]:
-    """
-    Utility function to extract job info from a single search result item
-    
-    Args:
-        item (Dict): An item from Google CSE results
-        
-    Returns:
-        Optional[Dict]: Job information or None if not valid
-    """
-    parser = LinkedInJobManualParser()
-    return parser.extract_job_info(item)

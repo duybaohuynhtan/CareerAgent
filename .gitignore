@@ -1,4 +1,4 @@
 .env
 test.pdf
-testing/
+ignore/
 backend/tools/__pycache__/
