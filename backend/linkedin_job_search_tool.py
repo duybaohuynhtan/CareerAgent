@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 # Import GoogleCSELinkedInSearcher and schema
 from google_cse_linkedin_search import GoogleCSELinkedInSearcher
 from schema import LinkedInJobSearchInput
+from config import MODEL_NAME
 
 
 @tool(args_schema=LinkedInJobSearchInput)
@@ -30,8 +31,7 @@ def search_linkedin_jobs(
     work_arrangement: str = "",
     job_function: str = "",
     include_similar: bool = True,
-    exact_match_company: bool = False,
-    model_name: str = "deepseek-r1-distill-llama-70b"
+    exact_match_company: bool = False
 ) -> Dict:
     """
     Comprehensive LinkedIn job search with advanced filtering capabilities.
@@ -70,7 +70,7 @@ def search_linkedin_jobs(
         job_function: Job function category (e.g., 'engineering', 'marketing', 'sales', 'design')
         include_similar: Include similar/related job titles in search results
         exact_match_company: Require exact company name match
-        model_name: LLM model name to use for parsing job information
+
     
     Returns:
         Dict: Search results with job listings and metadata
@@ -91,7 +91,7 @@ def search_linkedin_jobs(
         }
     
     # Create searcher instance
-    searcher = GoogleCSELinkedInSearcher(api_key, search_engine_id, model_name=model_name)
+    searcher = GoogleCSELinkedInSearcher(api_key, search_engine_id)
     
     # Use the unified search_jobs method with all parameters
     result = searcher.search_jobs(

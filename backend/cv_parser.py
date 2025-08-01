@@ -1,6 +1,7 @@
 from PyPDF2 import PdfReader
 from dotenv import load_dotenv
 from schema import ResumeSchema
+from config import MODEL_NAME
 
 def read_pdf(path):
     reader = PdfReader(path)
@@ -13,12 +14,12 @@ class CVParser:
     """
     CV/Resume parser using LLM for structured data extraction
     """
-    def __init__(self, model_name: str = "deepseek-r1-distill-llama-70b"):
-        self.model_name = model_name
+    def __init__(self):
+        self.model_name = MODEL_NAME
         try:
             load_dotenv()
             from langchain_groq import ChatGroq
-            from langchain.utils.openai_functions import convert_pydantic_to_openai_function
+            from langchain_core.utils.function_calling import convert_to_openai_function
             from langchain.prompts import ChatPromptTemplate
             from langchain.output_parsers.openai_functions import JsonOutputFunctionsParser
             
@@ -35,11 +36,11 @@ class CVParser:
     def _setup_resume_extraction_chain(self):
         """Setup LLM extraction chain for resume parsing"""
         try:
-            from langchain.utils.openai_functions import convert_pydantic_to_openai_function
+            from langchain_core.utils.function_calling import convert_to_openai_function
             from langchain.prompts import ChatPromptTemplate
             from langchain.output_parsers.openai_functions import JsonOutputFunctionsParser
             
-            extraction_functions = [convert_pydantic_to_openai_function(ResumeSchema)]
+            extraction_functions = [convert_to_openai_function(ResumeSchema)]
             extraction_model = self.llm_model.bind(
                 functions=extraction_functions, 
                 function_call={"name": "ResumeSchema"}
@@ -151,30 +152,28 @@ Remember: Use "None" string for any field where information is not explicitly av
                 "data": None
             }
 
-def parse_resume_text(resume_text: str, model_name: str = "deepseek-r1-distill-llama-70b") -> dict:
+def parse_resume_text(resume_text: str) -> dict:
     """
     Utility function to parse resume from text
     
     Args:
         resume_text (str): Resume text content
-        model_name (str): LLM model name to use
         
     Returns:
         dict: Parsed resume data
     """
-    parser = CVParser(model_name=model_name)
+    parser = CVParser()
     return parser.parse_resume_from_text(resume_text)
 
-def parse_resume_pdf(pdf_path: str, model_name: str = "deepseek-r1-distill-llama-70b") -> dict:
+def parse_resume_pdf(pdf_path: str) -> dict:
     """
     Utility function to parse resume from PDF file
     
     Args:
         pdf_path (str): Path to PDF file
-        model_name (str): LLM model name to use
         
     Returns:
         dict: Parsed resume data
     """
-    parser = CVParser(model_name=model_name)
+    parser = CVParser()
     return parser.parse_resume_from_pdf(pdf_path)

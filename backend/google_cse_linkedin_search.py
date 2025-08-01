@@ -14,20 +14,20 @@ from langchain.output_parsers.openai_functions import JsonOutputFunctionsParser
 from langchain_groq import ChatGroq
 from schema import JobSchema
 from manual_parser import LinkedInJobManualParser
+from config import MODEL_NAME
 
 class GoogleCSELinkedInSearcher:
-    def __init__(self, api_key: str, search_engine_id: str, model_name: str = "deepseek-r1-distill-llama-70b"):
+    def __init__(self, api_key: str, search_engine_id: str):
         """
         Initializes Google CSE LinkedIn Searcher
         
         Args:
             api_key (str): Google API key
             search_engine_id (str): Custom Search Engine ID
-            model_name (str): LLM model name to use for parsing
         """
         self.api_key = api_key
         self.search_engine_id = search_engine_id
-        self.model_name = model_name
+        self.model_name = MODEL_NAME
         self.base_url = "https://www.googleapis.com/customsearch/v1"
         
         # Initialize manual parser
@@ -36,7 +36,7 @@ class GoogleCSELinkedInSearcher:
         try:
             load_dotenv()
             self.llm_model = ChatGroq(
-                model=self.model_name,
+                model=MODEL_NAME,
                 temperature=0,
             )
             self._setup_llm_extraction_chain()

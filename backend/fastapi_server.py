@@ -14,6 +14,7 @@ import json
 
 # Import the job search agent
 from job_search_agent import create_linkedin_job_agent
+from config import MODEL_NAME, update_model_name, get_current_model, get_available_models
 
 app = FastAPI(
     title="Resume Analyzer API",
@@ -43,8 +44,19 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str = Field(..., description="User message")
-    model: str = Field(default="deepseek-r1-distill-llama-70b", description="LLM model to use")
     chatHistory: List[ChatMessage] = Field(default=[], description="Previous chat messages")
+
+class UpdateModelRequest(BaseModel):
+    model: str = Field(..., description="Model name to switch to")
+
+class UpdateModelResponse(BaseModel):
+    success: bool = Field(..., description="Whether the update was successful")
+    message: str = Field(..., description="Response message")
+    current_model: str = Field(..., description="Current active model")
+
+class GetModelResponse(BaseModel):
+    current_model: str = Field(..., description="Current active model")
+    available_models: List[str] = Field(..., description="List of available models")
 
 class ChatResponse(BaseModel):
     response: str = Field(..., description="Agent response")
@@ -54,15 +66,15 @@ class ChatResponse(BaseModel):
 # Global agents cache to avoid recreating agents
 agents_cache = {}
 
-def get_agent(model_name: str):
-    """Get or create an agent for the specified model"""
-    if model_name not in agents_cache:
+def get_agent():
+    """Get or create an agent"""
+    if MODEL_NAME not in agents_cache:
         try:
-            agents_cache[model_name] = create_linkedin_job_agent(model_name)
+            agents_cache[MODEL_NAME] = create_linkedin_job_agent()
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to create agent for model {model_name}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to create agent: {str(e)}")
     
-    return agents_cache[model_name]
+    return agents_cache[MODEL_NAME]
 
 def format_chat_history_for_agent(chat_history: List[ChatMessage]) -> str:
     """Convert chat history to string format for the agent"""
@@ -81,27 +93,53 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now()}
 
+@app.get("/api/model", response_model=GetModelResponse)
+async def get_current_model_info():
+    """Get current model and available models"""
+    return GetModelResponse(
+        current_model=get_current_model(),
+        available_models=get_available_models()
+    )
+
+@app.post("/api/model", response_model=UpdateModelResponse)
+async def update_model(request: UpdateModelRequest):
+    """Update the global model configuration"""
+    try:
+        success = update_model_name(request.model)
+        
+        if success:
+            # Clear agents cache to force recreation with new model
+            global agents_cache
+            agents_cache.clear()
+            
+            return UpdateModelResponse(
+                success=True,
+                message=f"Model updated to {request.model}",
+                current_model=get_current_model()
+            )
+        else:
+            available = get_available_models()
+            return UpdateModelResponse(
+                success=False,
+                message=f"Invalid model '{request.model}'. Available models: {', '.join(available)}",
+                current_model=get_current_model()
+            )
+    except Exception as e:
+        return UpdateModelResponse(
+            success=False,
+            message=f"Error updating model: {str(e)}",
+            current_model=get_current_model()
+        )
+
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """Main chat endpoint that processes user messages through the conversation agent"""
     
     try:
-        # Validate model name
-        valid_models = [
-            "deepseek-r1-distill-llama-70b",
-            "llama-3.3-70b-versatile", 
-            "gemma2-9b-it"
-        ]
+        # Model is now handled globally, no need to validate per request
         
-        if request.model not in valid_models:
-            return ChatResponse(
-                response=f"Model {request.model} is not supported. Available models: {', '.join(valid_models)}",
-                success=False,
-                error=f"Invalid model: {request.model}"
-            )
-        
-        # Get the agent for the specified model
-        agent = get_agent(request.model)
+        # Get the agent
+        agent = get_agent()
         
         # Prepare the input for the agent
         # The agent expects the current user input

@@ -13,6 +13,7 @@ from langchain.schema.runnable import RunnablePassthrough
 from langchain.agents import AgentExecutor
 from langchain.memory import ConversationBufferMemory
 from langchain.agents.format_scratchpad import format_to_openai_functions
+from config import MODEL_NAME
 
 # Import all available tools
 from linkedin_job_search_tool import search_linkedin_jobs
@@ -28,11 +29,8 @@ tools = [
 ]
 
 # Setup conversation model with LinkedIn job search capabilities
-def create_linkedin_job_agent(model_name: str = "deepseek-r1-distill-llama-70b"):
+def create_linkedin_job_agent():
     """Creates a conversational agent with LinkedIn job search capabilities
-    
-    Args:
-        model_name (str): LLM model name to use for the agent
     """
 
     # Load environment variables
@@ -40,7 +38,7 @@ def create_linkedin_job_agent(model_name: str = "deepseek-r1-distill-llama-70b")
     
     # Initialize model
     model = ChatGroq(
-        model=model_name,
+        model=MODEL_NAME,
         temperature=0
     ).bind_tools(tools=tools)
     

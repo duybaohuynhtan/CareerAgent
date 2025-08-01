@@ -242,7 +242,7 @@ class CVParseInput(BaseModel):
     """Input schema for CV parsing tools"""
     content: str = Field(..., description="CV content as text OR file path to PDF file")
     content_type: str = Field(default="text", description="Type of content: 'text' for direct text input or 'pdf' for PDF file path")
-    model_name: str = Field(default="deepseek-r1-distill-llama-70b", description="LLM model name to use for parsing")
+
 
 
 class JobSearchFromCVInput(BaseModel):
@@ -254,7 +254,7 @@ class JobSearchFromCVInput(BaseModel):
     work_arrangement: str = Field(default="", description="Preferred work arrangement: remote, hybrid, on-site. Leave empty to search all arrangements")
     num_results: int = Field(default=10, description="Number of job results to return (1-50)", ge=1, le=50)
     include_entry_level: bool = Field(default=False, description="Include entry-level positions even for experienced candidates")
-    model_name: str = Field(default="deepseek-r1-distill-llama-70b", description="LLM model name to use")
+
 
 
 # =============================================================================
@@ -297,7 +297,7 @@ class LinkedInJobSearchInput(BaseModel):
     exact_match_company: bool = Field(default=False, description="Require exact company name match (useful for targeting specific companies)")
     
     # Model configuration
-    model_name: str = Field(default="deepseek-r1-distill-llama-70b", description="LLM model name to use for parsing job information")
+
     
     @field_validator('date_range')
     def validate_date_range(cls, v):
@@ -313,10 +313,10 @@ class LinkedInJobSearchInput(BaseModel):
         return v
     
     @field_validator('*', mode="before")
-    def empty_str_to_default(cls, v, field):
+    def empty_str_to_default(cls, v, info):
         """Ensure empty strings are handled appropriately"""
         if v == '' or v is None:
-            if field.name in ['keyword']:  # Required fields should not be empty
+            if info.field_name in ['keyword']:  # Required fields should not be empty
                 return v  # Let validation handle required fields
             return ""  # Optional fields can be empty
         return v

@@ -16,6 +16,7 @@ from google_cse_linkedin_search import GoogleCSELinkedInSearcher
 from langchain_groq import ChatGroq
 from langchain.prompts import ChatPromptTemplate
 from schema import JobSearchFromCVInput
+from config import MODEL_NAME
 
 
 @tool(args_schema=JobSearchFromCVInput)
@@ -26,8 +27,7 @@ def search_jobs_from_cv(
     job_type: str = "",
     work_arrangement: str = "",
     num_results: int = 10,
-    include_entry_level: bool = False,
-    model_name: str = "deepseek-r1-distill-llama-70b"
+    include_entry_level: bool = False
 ) -> Dict:
     """
     Automatically analyze a CV/resume and search for relevant job opportunities.
@@ -53,7 +53,7 @@ def search_jobs_from_cv(
         work_arrangement: Preferred work arrangement (overrides CV preference if provided)
         num_results: Number of job results to return
         include_entry_level: Include entry-level positions even for experienced candidates
-        model_name: LLM model name to use
+
     
     Returns:
         Dict: CV analysis results and matching job opportunities
@@ -64,7 +64,7 @@ def search_jobs_from_cv(
         load_dotenv()
         
         # Step 1: Parse the CV
-        cv_parser = CVParser(model_name=model_name)
+        cv_parser = CVParser()
         
         if cv_content_type.lower() == "pdf":
             if not os.path.exists(cv_content):
@@ -103,7 +103,7 @@ def search_jobs_from_cv(
         cv_data = cv_result.get("data", {})
         
         # Step 2: Generate job search parameters from CV data
-        search_params = _generate_search_parameters(cv_data, model_name, location, job_type, work_arrangement, include_entry_level)
+        search_params = _generate_search_parameters(cv_data, location, job_type, work_arrangement, include_entry_level)
         
         if not search_params.get("success", False):
             return {
@@ -114,7 +114,7 @@ def search_jobs_from_cv(
             }
         
         # Step 3: Perform job search with generated parameters
-        jobs_result = _search_jobs_with_params(search_params["parameters"], num_results, model_name)
+        jobs_result = _search_jobs_with_params(search_params["parameters"], num_results)
         
         # Step 4: Return combined results
         return {
@@ -137,13 +137,13 @@ def search_jobs_from_cv(
         }
 
 
-def _generate_search_parameters(cv_data: Dict, model_name: str, user_location: str = "", user_job_type: str = "", user_work_arrangement: str = "", include_entry_level: bool = False) -> Dict:
+def _generate_search_parameters(cv_data: Dict, user_location: str = "", user_job_type: str = "", user_work_arrangement: str = "", include_entry_level: bool = False) -> Dict:
     """
     Generate job search parameters based on parsed CV data using LLM analysis.
     """
     try:
         # Initialize LLM
-        llm = ChatGroq(model=model_name, temperature=0)
+        llm = ChatGroq(model=MODEL_NAME, temperature=0)
         
         # Create prompt for generating search parameters
         prompt = ChatPromptTemplate.from_messages([
@@ -324,7 +324,7 @@ def _convert_strategy_to_params(strategy: Dict, cv_data: Dict, user_location: st
     return params
 
 
-def _search_jobs_with_params(search_params: Dict, num_results: int, model_name: str) -> Dict:
+def _search_jobs_with_params(search_params: Dict, num_results: int) -> Dict:
     """
     Perform job search with the generated parameters.
     """
@@ -341,7 +341,7 @@ def _search_jobs_with_params(search_params: Dict, num_results: int, model_name: 
             }
         
         # Create searcher and perform search
-        searcher = GoogleCSELinkedInSearcher(api_key, search_engine_id, model_name=model_name)
+        searcher = GoogleCSELinkedInSearcher(api_key, search_engine_id)
         
         result = searcher.search_jobs(
             keyword=search_params.get("keyword", ""),

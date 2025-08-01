@@ -10,13 +10,13 @@ from typing import Dict, Union
 import os
 from cv_parser import CVParser, read_pdf
 from schema import CVParseInput
+from config import MODEL_NAME
 
 
 @tool(args_schema=CVParseInput)
 def parse_cv_content(
     content: str,
-    content_type: str = "text", 
-    model_name: str = "deepseek-r1-distill-llama-70b"
+    content_type: str = "text"
 ) -> Dict:
     """
     Parse CV/resume from text content or PDF file and extract structured information.
@@ -33,14 +33,14 @@ def parse_cv_content(
     Args:
         content: CV content as text OR file path to PDF file
         content_type: 'text' for direct text input or 'pdf' for PDF file path
-        model_name: LLM model name to use for parsing
+
     
     Returns:
         Dict: Structured CV information according to ResumeSchema with parsing status
     """
     try:
         # Initialize CV parser
-        parser = CVParser(model_name=model_name)
+        parser = CVParser()
         
         if content_type.lower() == "pdf":
             # Parse from PDF file
