@@ -1,0 +1,23 @@
+{
+  "default_model": "deepseek-r1-distill-llama-70b",
+  "available_models": [
+    {
+      "id": "deepseek-r1-distill-llama-70b",
+      "name": "DeepSeek R1 Distill Llama 70B",
+      "description": "Advanced reasoning model for complex tasks",
+      "provider": "groq"
+    },
+    {
+      "id": "llama-3.3-70b-versatile",
+      "name": "Llama 3.3 70B Versatile",
+      "description": "Versatile model for general conversations",
+      "provider": "groq"
+    },
+    {
+      "id": "gemma2-9b-it",
+      "name": "Gemma2 9B IT",
+      "description": "Efficient model for instruction following",
+      "provider": "groq"
+    }
+  ]
+}
