@@ -1,37 +1,56 @@
 'use client';
 
-import { useState } from 'react';
-import { ChevronDown, Brain } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronDown, Brain, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ModelOption } from '@/types/chat';
+import { apiClient } from '@/lib/api';
 
 interface ModelSelectorProps {
     selectedModel: string;
     onModelChange: (modelId: string) => void;
 }
 
-const AVAILABLE_MODELS: ModelOption[] = [
-    {
-        id: 'deepseek-r1-distill-llama-70b',
-        name: 'DeepSeek R1 Distill Llama 70B',
-        description: 'Advanced reasoning model for complex tasks'
-    },
-    {
-        id: 'llama-3.3-70b-versatile',
-        name: 'Llama 3.3 70B Versatile',
-        description: 'Versatile model for general conversations'
-    },
-    {
-        id: 'gemma2-9b-it',
-        name: 'Gemma2 9B IT',
-        description: 'Efficient model for instruction following'
-    }
-];
-
 export default function ModelSelector({ selectedModel, onModelChange }: ModelSelectorProps) {
     const [isOpen, setIsOpen] = useState(false);
+    const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const selectedModelOption = AVAILABLE_MODELS.find(model => model.id === selectedModel) || AVAILABLE_MODELS[0];
+    // Fetch available models on component mount
+    useEffect(() => {
+        const fetchModels = async () => {
+            setIsLoading(true);
+            try {
+                const models = await apiClient.getAvailableModels();
+                setAvailableModels(models);
+            } catch (error) {
+                console.error('Failed to fetch models:', error);
+                // Fallback to a default model if fetch fails
+                setAvailableModels([
+                    {
+                        id: 'llama-3.3-70b-versatile',
+                        name: 'Llama 3.3 70B Versatile',
+                        description: 'Versatile model for general conversations'
+                    }
+                ]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchModels();
+    }, []);
+
+    const selectedModelOption = availableModels.find(model => model.id === selectedModel) || availableModels[0];
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg border bg-white">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                <span className="text-sm text-gray-600">Loading models...</span>
+            </div>
+        );
+    }
 
     return (
         <div className="relative">
@@ -69,7 +88,7 @@ export default function ModelSelector({ selectedModel, onModelChange }: ModelSel
                         onClick={() => setIsOpen(false)}
                     />
                     <div className="absolute top-full left-0 mt-1 w-full bg-white border rounded-lg shadow-lg z-20 py-1">
-                        {AVAILABLE_MODELS.map((model) => (
+                        {availableModels.map((model) => (
                             <button
                                 key={model.id}
                                 onClick={() => {

@@ -32,3 +32,10 @@ export interface UpdateModelResponse {
     message: string;
     current_model: string;
 }
+
+export interface UploadResponse {
+    success: boolean;
+    message: string;
+    file_id?: string;
+    cv_analysis?: string;
+}

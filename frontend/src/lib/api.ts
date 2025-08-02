@@ -1,4 +1,4 @@
-import { ChatRequest, ChatResponse, UpdateModelRequest, UpdateModelResponse } from '@/types/chat';
+import { ChatRequest, ChatResponse, UpdateModelRequest, UpdateModelResponse, ModelOption, UploadResponse } from '@/types/chat';
 
 const API_BASE_URL = process.env.NODE_ENV === 'production'
     ? 'https://your-backend-url.com'
@@ -80,6 +80,75 @@ export class ApiClient {
                 success: false,
                 message: error instanceof Error ? error.message : 'Unknown error',
                 current_model: 'unknown'
+            };
+        }
+    }
+
+    async getAvailableModels(): Promise<ModelOption[]> {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/models`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            return data.models || [];
+        } catch (error) {
+            console.error('Get models error:', error);
+            // Return fallback models if API fails
+            return [
+                {
+                    id: 'llama-3.3-70b-versatile',
+                    name: 'Llama 3.3 70B Versatile',
+                    description: 'Versatile model for general conversations'
+                }
+            ];
+        }
+    }
+
+    async clearChat(): Promise<{ success: boolean, message: string }> {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/chat/clear`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Clear chat error:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Unknown error'
+            };
+        }
+    }
+
+    async uploadCV(file: File): Promise<UploadResponse> {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch(`${this.baseUrl}/api/upload/cv`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Upload CV error:', error);
+            return {
+                success: false,
+                message: error instanceof Error ? error.message : 'Unknown error'
             };
         }
     }
