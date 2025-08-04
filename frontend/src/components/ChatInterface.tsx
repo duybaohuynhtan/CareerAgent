@@ -229,7 +229,7 @@ Please share your CV or let me know what type of job you're looking for!`,
                         <MessageSquare className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-lg font-semibold text-gray-900">Resume Analyzer</h1>
+                        <h1 className="text-lg font-semibold text-gray-900">CareerAgent</h1>
                         <p className="text-sm text-gray-600">AI Career Assistant</p>
                     </div>
                 </div>

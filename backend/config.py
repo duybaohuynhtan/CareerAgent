@@ -1,5 +1,5 @@
 """
-Global configuration for the Resume Analyzer application.
+Global configuration for the CareerAgent application.
 
 This module contains shared configuration values used across all components.
 """

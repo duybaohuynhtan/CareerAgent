@@ -1,5 +1,5 @@
 """
-FastAPI Server for Resume Analyzer Chat Interface
+FastAPI Server for CareerAgent Chat Interface
 Serves as a bridge between the Next.js frontend and the conversation agent.
 """
 
@@ -21,8 +21,8 @@ from job_search_agent import create_linkedin_job_agent
 from config import update_model_name, get_current_model, get_available_models, get_available_models_detailed
 
 app = FastAPI(
-    title="Resume Analyzer API",
-    description="FastAPI backend for Resume Analyzer conversation agent",
+    title="CareerAgent API",
+    description="FastAPI backend for CareerAgent conversation agent",
     version="1.0.0"
 )
 
@@ -82,7 +82,7 @@ agents_cache = {}
 
 # File management system
 uploaded_files = {}  # {file_id: {"path": str, "original_name": str, "upload_time": datetime}}
-UPLOAD_DIR = Path(tempfile.gettempdir()) / "resume_analyzer_uploads"
+UPLOAD_DIR = Path(tempfile.gettempdir()) / "career_agent_uploads"
 
 # Ensure upload directory exists
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -411,14 +411,14 @@ async def get_models_endpoint():
 async def root():
     """Root endpoint with API information"""
     return {
-        "message": "Resume Analyzer API",
+        "message": "CareerAgent API",
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/api/health"
     }
 
 if __name__ == "__main__":
-    print("🚀 Starting Resume Analyzer FastAPI Server...")
+    print("🚀 Starting CareerAgent FastAPI Server...")
     print("📚 API Documentation: http://localhost:8000/docs")
     print("🔗 Frontend should connect to: http://localhost:8000")
     

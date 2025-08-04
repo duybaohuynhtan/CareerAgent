@@ -1,4 +1,4 @@
-# Resume Analyzer - Complete Dependencies (Exact Working Versions)
+# CareerAgent - Complete Dependencies (Exact Working Versions)
 # All versions match current working environment
 
 # === CORE WEB FRAMEWORK ===
