@@ -111,6 +111,20 @@
 The project operates with a simple yet powerful client-server architecture, orchestrated by an AI agent.
 
 ```mermaid
+%%{
+  init: {
+    'theme': 'dark',
+    'themeVariables': {
+      'fontFamily': 'arial',
+      'mainBkg': 'transparent',
+      'nodeBorder': '#fff',
+      'clusterBorder': '#fff',
+      'edgeLabelBackground': 'transparent',
+      'textColor': '#fff',
+      'lineColor': '#fff'
+    }
+  }
+}%%
 graph TD
     %% Frontend Components
     A[Frontend Interface<br>Next.js + React] -->|User Input| B1[ChatInterface.tsx]
@@ -145,13 +159,11 @@ graph TD
     C1 -->|HTTP Response| B1
 
     %% Styling
-    classDef frontend fill:#d4e6f1,stroke:#2874a6,stroke-width:2px
-    classDef backend fill:#d5f5e3,stroke:#196f3d,stroke-width:2px
-    classDef external fill:#fdebd0,stroke:#d35400,stroke-width:2px
+    classDef default fill:transparent,stroke:#fff,stroke-width:2px,color:#fff
+    classDef emphasis fill:transparent,stroke:#fff,stroke-width:3px,color:#fff
     
-    class A,B1,B2,B3,B4 frontend
-    class C1,D,E1,E2 backend
-    class F1,F2,F3 external
+    class A,C1,D emphasis
+    class B1,B2,B3,B4,E1,E2,F1,F2,F3 default
 ```
 
 ---
