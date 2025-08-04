@@ -24,7 +24,7 @@ def search_linkedin_jobs(
     experience_level: str = "",
     company: str = "",
     industry: str = "",
-    date_range: str = "m1",
+    date_range: str = "m6",
     num_results: int = 5,
     parsing_method: str = "llm",
     salary_range: str = "",

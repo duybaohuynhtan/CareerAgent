@@ -252,7 +252,7 @@ class JobSearchFromCVInput(BaseModel):
     location: str = Field(default="", description="Preferred job location (city, state, country). Leave empty to use location from CV or search all locations")
     job_type: str = Field(default="", description="Preferred employment type: full-time, part-time, contract, internship. Leave empty to search all types")
     work_arrangement: str = Field(default="", description="Preferred work arrangement: remote, hybrid, on-site. Leave empty to search all arrangements")
-    num_results: int = Field(default=10, description="Number of job results to return (1-50)", ge=1, le=50)
+    num_results: int = Field(default=5, description="Number of job results to return (1-50)", ge=1, le=50)
     include_entry_level: bool = Field(default=False, description="Include entry-level positions even for experienced candidates")
 
 
@@ -281,7 +281,7 @@ class LinkedInJobSearchInput(BaseModel):
     industry: str = Field(default="", description="Industry sector (e.g., 'technology', 'healthcare', 'finance'). Leave empty for all industries")
     
     # Time and date filters
-    date_range: str = Field(default="m1", description="Job posting recency: 'd1' (past day), 'w1' (past week), 'm1' (past month), 'm2' (past 2 months), 'm3' (past 3 months), 'm6' (past 6 months)")
+    date_range: str = Field(default="m6", description="Job posting recency: 'd1' (past day), 'w1' (past week), 'm1' (past month), 'm2' (past 2 months), 'm3' (past 3 months), 'm6' (past 6 months)")
     
     # Search parameters
     num_results: int = Field(default=5, description="Number of job results to return (1-50)", ge=1, le=50)
