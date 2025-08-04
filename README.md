@@ -46,7 +46,7 @@
 ## 🎥 Demo
 
 <div align="center">
-  <video src="demo.mp4" controls="controls" style="max-width: 800px;"></video>
+  <video src="[demo.mp4](https://github.com/user-attachments/assets/baadc211-4cdd-4370-8523-e348a8124901)" controls="controls" style="max-width: 800px;"></video>
 </div>
 
 ---
