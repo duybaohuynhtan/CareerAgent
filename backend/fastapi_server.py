@@ -355,9 +355,8 @@ async def upload_cv(file: UploadFile = File(...)):
         # Use the CV parser tool to analyze the uploaded file
         try:
             if file_extension == '.pdf':
-                # For PDF files, use extract_pdf_text first then parse_cv_content
                 cv_analysis_result = agent.invoke({
-                    "input": f"I've uploaded a PDF CV file. Please extract the text and analyze it. File path: {file_path}"
+                    "input": f"I've uploaded a PDF CV file. Please analyze it. File path: {file_path}"
                 })
             else:
                 # For other file types, read content directly

@@ -151,29 +151,3 @@ Remember: Use "None" string for any field where information is not explicitly av
                 "error": f"Error processing PDF: {str(e)}",
                 "data": None
             }
-
-def parse_resume_text(resume_text: str) -> dict:
-    """
-    Utility function to parse resume from text
-    
-    Args:
-        resume_text (str): Resume text content
-        
-    Returns:
-        dict: Parsed resume data
-    """
-    parser = CVParser()
-    return parser.parse_resume_from_text(resume_text)
-
-def parse_resume_pdf(pdf_path: str) -> dict:
-    """
-    Utility function to parse resume from PDF file
-    
-    Args:
-        pdf_path (str): Path to PDF file
-        
-    Returns:
-        dict: Parsed resume data
-    """
-    parser = CVParser()
-    return parser.parse_resume_from_pdf(pdf_path)

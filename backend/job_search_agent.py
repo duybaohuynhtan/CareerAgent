@@ -17,15 +17,13 @@ from config import get_current_model
 
 # Import all available tools
 from linkedin_job_search_tool import search_linkedin_jobs
-from cv_parser_tool import parse_cv_content, extract_pdf_text
-from job_search_from_cv_tool import search_jobs_from_cv
+from cv_parser_tool import parse_cv_content
+
 
 # List of available tools for the agent
 tools = [
     search_linkedin_jobs,     # LinkedIn job search tool
     parse_cv_content,         # CV/resume parser tool
-    extract_pdf_text,         # PDF text extraction tool
-    search_jobs_from_cv       # Combined CV analysis + job search tool
 ]
 
 # Setup conversation model with LinkedIn job search capabilities
@@ -57,15 +55,11 @@ def create_linkedin_job_agent():
 🛠️ **AVAILABLE TOOLS** (use only when specifically needed):
 
 1. **parse_cv_content** - Analyze CV/resume content and extract structured information
-2. **extract_pdf_text** - Extract text from PDF files for review  
-3. **search_linkedin_jobs** - Search for jobs with specific criteria (keywords, location, company, etc.)
-4. **search_jobs_from_cv** - Automatically find jobs that match a provided CV/resume
+2. **search_linkedin_jobs** - Search for jobs with specific criteria (keywords, location, company, etc.)
 
 🎯 **WHEN TO USE TOOLS:**
 - **CV Analysis**: User wants their CV/resume parsed or analyzed → use `parse_cv_content`
-- **Job Search**: User provides specific search criteria → use `search_linkedin_jobs`  
-- **Smart Job Matching**: User provides CV and wants job recommendations → use `search_jobs_from_cv`
-- **PDF Processing**: User needs text extracted from PDF → use `extract_pdf_text`
+- **Job Search**: User provides specific search criteria → use `search_linkedin_jobs`
 
 🎯 **WHEN NOT TO USE TOOLS:**
 - General career questions or advice

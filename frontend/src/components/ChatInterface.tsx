@@ -51,8 +51,6 @@ export default function ChatInterface() {
 I can help you with:
 🔍 LinkedIn job search
 📄 CV/Resume analysis and evaluation
-📋 PDF text extraction
-🎯 Finding suitable jobs based on your CV
 
 Please share your CV or let me know what type of job you're looking for!`,
                 timestamp: new Date(),
