@@ -107,7 +107,7 @@ def get_model_info(model_id: str) -> Dict[str, str]:
     for model in _models_config["available_models"]:
         if model["id"] == model_id:
             return model.copy()
-    return None
+    return {}
 
 def reload_models_config():
     """

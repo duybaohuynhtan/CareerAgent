@@ -209,7 +209,8 @@ Generate optimal job search parameters for this candidate.""")
         # Parse LLM response (assuming it returns structured JSON)
         import json
         try:
-            strategy = json.loads(response.content)
+            content = response.content if isinstance(response.content, str) else str(response.content)
+            strategy = json.loads(content)
         except:
             # Fallback to basic parameter extraction if JSON parsing fails
             strategy = _extract_basic_search_params(cv_data, user_location, user_job_type, user_work_arrangement, include_entry_level)

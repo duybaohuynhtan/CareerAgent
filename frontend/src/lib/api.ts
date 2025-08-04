@@ -97,10 +97,20 @@ export class ApiClient {
             // Return fallback models if API fails
             return [
                 {
+                    id: 'llama-3.1-8b-instant',
+                    name: 'Llama 3.1 8B Instant',
+                    description: 'Fast and efficient model for instant responses.'
+                },
+                {
                     id: 'llama-3.3-70b-versatile',
                     name: 'Llama 3.3 70B Versatile',
                     description: 'Versatile model for general conversations'
-                }
+                },
+                {
+                    id: 'meta-llama/llama-guard-4-12b',
+                    name: 'Llama Guard 4 12B',
+                    description: 'Model specialized in safety and content moderation.',
+                },
             ];
         }
     }

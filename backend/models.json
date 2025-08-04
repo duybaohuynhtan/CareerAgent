@@ -1,10 +1,10 @@
 {
-  "default_model": "deepseek-r1-distill-llama-70b",
+  "default_model": "llama-3.1-8b-instant",
   "available_models": [
     {
-      "id": "deepseek-r1-distill-llama-70b",
-      "name": "DeepSeek R1 Distill Llama 70B",
-      "description": "Advanced reasoning model for complex tasks",
+      "id": "llama-3.1-8b-instant",
+      "name": "Llama 3.1 8B Instant",
+      "description": "Fast and efficient model for instant responses.",
       "provider": "groq"
     },
     {
@@ -14,9 +14,39 @@
       "provider": "groq"
     },
     {
-      "id": "gemma2-9b-it",
-      "name": "Gemma2 9B IT",
-      "description": "Efficient model for instruction following",
+      "id": "meta-llama/llama-guard-4-12b",
+      "name": "Llama Guard 4 12B",
+      "description": "Model specialized in safety and content moderation.",
+      "provider": "groq"
+    },
+    {
+      "id": "deepseek-r1-distill-llama-70b",
+      "name": "DeepSeek R1 Distill Llama 70B",
+      "description": "Advanced reasoning model for complex tasks",
+      "provider": "groq"
+    },
+    {
+      "id": "meta-llama/llama-4-maverick-17b-128e-instruct",
+      "name": "Llama 4 Maverick 17B",
+      "description": "High-performance instruction-following model.",
+      "provider": "groq"
+    },
+    {
+      "id": "meta-llama/llama-4-scout-17b-16e-instruct",
+      "name": "Llama 4 Scout 17B",
+      "description": "Efficient and capable instruction-following model.",
+      "provider": "groq"
+    },
+    {
+      "id": "moonshotai/kimi-k2-instruct",
+      "name": "Kimi K2 Instruct",
+      "description": "Instruction-tuned model from Moonshot AI.",
+      "provider": "groq"
+    },
+    {
+      "id": "qwen/qwen3-32b",
+      "name": "Qwen3 32B",
+      "description": "Large language model from Alibaba Cloud.",
       "provider": "groq"
     }
   ]

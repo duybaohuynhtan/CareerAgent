@@ -1,5 +1,5 @@
 .env
-test.pdf
+MyCV.pdf
 ignore/
 __pycache__/
 backend/__pycache__/
