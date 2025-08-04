@@ -46,7 +46,7 @@
 ## 🎥 Demo
 
 <div align="center">
-  <video src="demo.mkv" controls="controls" style="max-width: 800px;"></video>
+  <video src="demo.mp4" controls="controls" style="max-width: 800px;"></video>
 </div>
 
 ---
@@ -112,18 +112,46 @@ The project operates with a simple yet powerful client-server architecture, orch
 
 ```mermaid
 graph TD
-    A[Frontend User Interface <br>(Next.js)] -->|HTTP Request| B(FastAPI Backend);
-    B --> C{Job Search Agent <br>(LangChain)};
-    C -->|User wants to parse CV| D(CV Parser Tool);
-    C -->|User wants to find jobs| E(LinkedIn Job Search Tool);
-    D --> F[LLM for Extraction];
-    E --> G[Google CSE API];
-    G --> E;
-    F --> D;
-    D --> C;
-    E --> C;
-    C -->|Agent Response| B;
-    B -->|HTTP Response| A;
+    %% Frontend Components
+    A[Frontend Interface<br>Next.js + React] -->|User Input| B1[ChatInterface.tsx]
+    B1 -->|File Upload| B2[FileUpload.tsx]
+    B1 -->|Model Selection| B3[ModelSelector.tsx]
+    B1 -->|Message Display| B4[ChatMessage.tsx]
+    
+    %% API Communication
+    B1 -->|HTTP POST /chat| C1[FastAPI Server<br>fastapi_server.py]
+    B2 -->|HTTP POST /upload| C1
+    B3 -->|HTTP GET /models| C1
+    
+    %% Backend Processing
+    C1 -->|Initialize| D[Job Search Agent<br>job_search_agent.py]
+    
+    %% Agent Tools
+    D -->|CV Analysis| E1[CV Parser Tool<br>cv_parser_tool.py]
+    D -->|Job Search| E2[LinkedIn Search Tool<br>linkedin_job_search_tool.py]
+    
+    %% External Services
+    E1 -->|Extract Text| F1[PyPDF2]
+    E1 -->|Parse Content| F2[Groq LLM API]
+    E2 -->|Search Jobs| F3[Google CSE API]
+    
+    %% Data Flow Back
+    F1 --> E1
+    F2 --> E1
+    F3 --> E2
+    E1 -->|Structured Resume Data| D
+    E2 -->|Job Listings| D
+    D -->|Agent Response| C1
+    C1 -->|HTTP Response| B1
+
+    %% Styling
+    classDef frontend fill:#d4e6f1,stroke:#2874a6,stroke-width:2px
+    classDef backend fill:#d5f5e3,stroke:#196f3d,stroke-width:2px
+    classDef external fill:#fdebd0,stroke:#d35400,stroke-width:2px
+    
+    class A,B1,B2,B3,B4 frontend
+    class C1,D,E1,E2 backend
+    class F1,F2,F3 external
 ```
 
 ---
